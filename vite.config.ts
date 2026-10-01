@@ -37,7 +37,7 @@ export default defineConfig({
         // The evening nudge lives in the service worker, which this plugin
         // generates — so it is imported into it rather than replacing it.
         // Resolved against the worker's own URL, which is what makes it work
-        // under the /dutch-learning/ base on Pages as well as at the root.
+        // under the /doei/ base on Pages as well as at the root.
         importScripts: ['nudge.js'],
         // The recordings are thousands of small files — far too many to fetch
         // on install. Each is kept the first time it is played, so a word
