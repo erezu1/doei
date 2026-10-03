@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import type React from 'react'
 import type { ReactNode } from 'react'
 import { pressable, quiet } from './motion'
 
@@ -37,7 +38,7 @@ const tones: Record<Tone, string> = {
  * ink can survive, and which ink that is depends on which way round the
  * accent and its ink are.
  */
-function wash(tone: Tone): string {
+export function wash(tone: Tone): string {
   const quiet = tone === 'accent' || tone === 'neutral'
   if (quiet) {
     const at = (pct: number) => `color-mix(in srgb, var(--color-surface) ${pct}%, transparent)`
@@ -53,6 +54,14 @@ interface Props {
   tone?: Tone
   disabled?: boolean
   /**
+   * Something painted across the button, under the words — a clock running
+   * down, where `progress` would be a quantity standing still. The button
+   * doesn't know what it means; it only owns the rounded box that clips it.
+   */
+  overlay?: ReactNode
+  /** For a button that cares about the press itself, not only the click. */
+  onPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void
+  /**
    * How much of today is behind you, nought to one. The button draws it.
    *
    * A graded wash whose gradient spans the fill rather than the button, so its
@@ -67,15 +76,24 @@ interface Props {
 }
 
 export function Button({
-  children, onClick, tone = 'primary', disabled, progress, className = '',
+  children,
+  onClick,
+  tone = 'primary',
+  disabled,
+  progress,
+  overlay,
+  onPointerDown,
+  className = '',
 }: Props) {
   return (
     <motion.button
       {...pressable}
       onClick={onClick}
+      onPointerDown={onPointerDown}
       disabled={disabled}
       className={`relative overflow-hidden rounded-full px-8 py-5 text-lg leading-none font-semibold transition-shadow active:shadow-press disabled:opacity-40 disabled:shadow-1 ${tones[tone]} ${className}`}
     >
+      {overlay}
       {progress != null && (
         <motion.span
           aria-hidden="true"

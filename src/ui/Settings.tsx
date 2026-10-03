@@ -363,7 +363,9 @@ export function Settings({
         >
           <div>
             <p className="font-semibold">Continue automatically</p>
-            <p className="mt-0.5 text-sm text-on-surface-dim">After a right answer, go straight on.</p>
+            <p className="mt-0.5 text-sm text-on-surface-dim">
+              After a right answer, go straight on.
+            </p>
           </div>
           <Switch checked={autoContinue} onChange={onAutoContinue} label="Continue automatically" />
         </motion.div>
