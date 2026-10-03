@@ -85,15 +85,18 @@ export function UpdateButton() {
       aria-label="Check for a new version"
       className="grid h-8 w-8 place-items-center rounded-full bg-surface-1 text-on-surface-dim shadow-1"
     >
-      {/* The glyphs cross-fade in one cell; only the arrow turns, and it turns
-          for exactly as long as the asking takes. */}
+      {/* One cell, and the glyphs turn through each other rather than
+          dissolving: the arrows are already spinning when the answer arrives,
+          so the answer carries on round in the same direction and stops. A
+          cross-fade in the middle of a spin reads as the icon giving up. */}
       <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
         <AnimatePresence initial={false}>
           <motion.span
             key={state === 'latest' || state === 'failed' ? state : 'arrow'}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            // Clockwise throughout, which is the way the spin was going.
+            initial={{ opacity: 0, rotate: -110 }}
+            animate={{ opacity: 1, rotate: 0 }}
+            exit={{ opacity: 0, rotate: 110 }}
             transition={glide}
             className="grid"
           >
