@@ -24,17 +24,22 @@ const LINGER = 1800
 type State = 'idle' | 'checking' | 'latest' | 'failed'
 
 /**
- * The same arc as the undo icon on the card screen, mirrored: this one turns
- * the way a thing being refreshed turns, and the other way round is already
- * spoken for by going back.
+ * Two arrows chasing each other: refresh, as every other app on the phone
+ * draws it. It replaced a single arc, which was the undo button from the card
+ * screen mirrored — one glyph doing two unrelated jobs in the same app, which
+ * is a thing you only notice once and then cannot stop noticing.
  */
-const ARROW = 'M20.34 15.37a9 9 0 1 1-8.34-12.37 9.75 9.75 0 0 1 6.74 2.74L21 8'
-const CORNER = 'M21 3v5h-5'
+const REFRESH = [
+  'M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8',
+  'M3 3v5h5',
+  'M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16',
+  'M16 16h5v5',
+]
 const TICK = 'M5.5 12.5 9.5 16.5 18.5 7.5'
 const CROSS = 'M7.5 7.5l9 9M16.5 7.5l-9 9'
 
 function Glyph({ state }: { state: State }) {
-  const paths = state === 'latest' ? [TICK] : state === 'failed' ? [CROSS] : [ARROW, CORNER]
+  const paths = state === 'latest' ? [TICK] : state === 'failed' ? [CROSS] : REFRESH
   return (
     <svg
       viewBox="0 0 24 24"
