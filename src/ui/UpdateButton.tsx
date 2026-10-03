@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { canCheckForUpdates, checkForUpdate } from '../core/update'
-import { glide, pressable } from './motion'
+import { pressable } from './motion'
 
 // ---------------------------------------------------------------------------
 // "Is there a new one?", asked out loud.
@@ -85,19 +85,21 @@ export function UpdateButton() {
       aria-label="Check for a new version"
       className="grid h-8 w-8 place-items-center rounded-full bg-surface-1 text-on-surface-dim shadow-1"
     >
-      {/* One cell, and the glyphs turn through each other rather than
-          dissolving: the arrows are already spinning when the answer arrives,
-          so the answer carries on round in the same direction and stops. A
-          cross-fade in the middle of a spin reads as the icon giving up. */}
+      {/* One at a time, in one cell: the arrows turn away and go, and only
+          once they are gone does the answer come round into their place.
+          Overlapping the two was two glyphs in one small circle at once,
+          which at this size is a smudge rather than a change. */}
       <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
-        <AnimatePresence initial={false}>
+        <AnimatePresence initial={false} mode="wait">
           <motion.span
             key={state === 'latest' || state === 'failed' ? state : 'arrow'}
             // Clockwise throughout, which is the way the spin was going.
+            // Quick, because this now happens twice in a row rather than at
+            // once: a spring here would make the swap feel like a decision.
             initial={{ opacity: 0, rotate: -110 }}
             animate={{ opacity: 1, rotate: 0 }}
             exit={{ opacity: 0, rotate: 110 }}
-            transition={glide}
+            transition={{ duration: 0.17, ease: [0.22, 1, 0.36, 1] }}
             className="grid"
           >
             <motion.span
