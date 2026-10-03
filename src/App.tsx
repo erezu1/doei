@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 import deckCore from './content/deck-core.json'
 import type { Deck } from './core/types'
-import { setReviewing } from './core/update'
+import { setAtRest } from './core/update'
 import { useSession } from './session/useSession'
 import { Done } from './ui/Done'
 import { Home } from './ui/Home'
@@ -130,10 +130,14 @@ export default function App() {
     if (screen === 'home') checkDay()
   }, [screen, checkDay])
 
-  // A new build waits for the end of a session before it takes the screen.
+  // A new build waits for the home screen before it takes the screen. The
+  // home screen is the whole test: a round in progress is kept in the
+  // database, not in this page, so landing back here with one half done and
+  // reloading costs nothing — and asking for an idle session as well would
+  // park the update until the round was finished, which could be days.
   useEffect(() => {
-    setReviewing(session.status === 'reviewing')
-  }, [session.status])
+    setAtRest(screen === 'home')
+  }, [screen])
 
   // Reloaded onto #review with no round to show — the saved one was yesterday's,
   // or its cards are no longer in the deck. Send the URL back to home rather

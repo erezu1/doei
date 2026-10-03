@@ -12,6 +12,7 @@ import { CoatPicker } from './CoatPicker'
 import { Paw } from './Paw'
 import { useCanInstall } from './useCanInstall'
 import { ThemePicker } from './ThemePicker'
+import { UpdateButton } from './UpdateButton'
 import { afterRing, pressable, ringGrow } from './motion'
 import { WeekStrip } from './WeekStrip'
 import { rungAt } from '../core/ladder'
@@ -191,6 +192,8 @@ export function Home({
               {reached.name}
             </motion.button>
 
+            <UpdateButton />
+
             <motion.button
               {...pressable}
               onClick={onOpenSettings}
@@ -213,7 +216,6 @@ export function Home({
             </motion.button>
           </div>
         </div>
-
       </div>
 
       {/* Wide, and it has to stay wide. The ring is the biggest thing on the
@@ -264,70 +266,68 @@ export function Home({
             </motion.div>
             <div className="relative grid h-48 w-48 place-items-center [@media(max-height:780px)]:h-40 [@media(max-height:780px)]:w-40">
               <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                fill="none"
-                stroke="var(--color-surface-3)"
-                strokeWidth="8"
-              />
-              {/* Nothing at all when nothing has been done: a round cap on an
-                  arc of zero length still draws a dot, and a dot on the ring
-                  reads as a score. */}
-              {progress > 0 && (
-                <motion.circle
+                <circle
                   cx="50"
                   cy="50"
                   r="45"
                   fill="none"
-                  stroke="var(--color-primary)"
+                  stroke="var(--color-surface-3)"
                   strokeWidth="8"
-                  strokeLinecap="round"
-                  // Drawn in from nothing every time the screen arrives, rather
-                  // than being there already. The ring is the day, and watching
-                  // it close is the closest the app gets to a reward.
-                  initial={false}
-                  animate={{ strokeDasharray: arrived ? `${progress * 283} 283` : '0 283' }}
-                  transition={ringGrow}
                 />
-              )}
-            </svg>
-            {/* The numbers wait for the ring: arriving together, the eye has
+                {/* Nothing at all when nothing has been done: a round cap on an
+                  arc of zero length still draws a dot, and a dot on the ring
+                  reads as a score. */}
+                {progress > 0 && (
+                  <motion.circle
+                    cx="50"
+                    cy="50"
+                    r="45"
+                    fill="none"
+                    stroke="var(--color-primary)"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    // Drawn in from nothing every time the screen arrives, rather
+                    // than being there already. The ring is the day, and watching
+                    // it close is the closest the app gets to a reward.
+                    initial={false}
+                    animate={{ strokeDasharray: arrived ? `${progress * 283} 283` : '0 283' }}
+                    transition={ringGrow}
+                  />
+                )}
+              </svg>
+              {/* The numbers wait for the ring: arriving together, the eye has
                 nowhere to start. */}
-            <motion.div
-              initial={false}
-              animate={{ opacity: arrived ? 1 : 0 }}
-              // With the ring rather than after it, and almost instantly:
-              // everything else on this screen waits for the ring to finish,
-              // but this is the ring's own reading. A fade of its own length
-              // would hide the early part of the count behind it, which is
-              // exactly the part that shows it starting from nothing.
-              transition={{ duration: 0.12, ease: 'easeOut' }}
-              className="text-center"
-            >
-              {/* The ring fills with today's questions, so today's questions
+              <motion.div
+                initial={false}
+                animate={{ opacity: arrived ? 1 : 0 }}
+                // With the ring rather than after it, and almost instantly:
+                // everything else on this screen waits for the ring to finish,
+                // but this is the ring's own reading. A fade of its own length
+                // would hide the early part of the count behind it, which is
+                // exactly the part that shows it starting from nothing.
+                transition={{ duration: 0.12, ease: 'easeOut' }}
+                className="text-center"
+              >
+                {/* The ring fills with today's questions, so today's questions
                   are what stands in it. A lifetime total inside a ring that
                   only ever measures one day is two facts pretending to be one,
                   and the line underneath existed to explain that they are not
                   — which is a caption apologising for its own illustration. */}
-              {/* The bare number needs saying what it is. Above rather than
+                {/* The bare number needs saying what it is. Above rather than
                   below, because the line underneath is already spoken for and
                   a label under a number reads as its unit. */}
-              <p className="text-xs tracking-wide text-on-surface-dim">level</p>
-              <p className={`text-5xl leading-tight ${TITLE}`}>{rung.level}</p>
-              {/* What you have, not what you owe. "To go" is the same fact
+                <p className="text-xs tracking-wide text-on-surface-dim">level</p>
+                <p className={`text-5xl leading-tight ${TITLE}`}>{rung.level}</p>
+                {/* What you have, not what you owe. "To go" is the same fact
                   read backwards, but it counts down to nothing and shrinks as
                   you do well — the ring fills, so the number under it fills
                   too, and the denominator says where full is. */}
-              <p className="text-sm tabular-nums text-on-surface-dim">
-                <motion.span>{shown}</motion.span> / {rung.span.toLocaleString()}
-              </p>
-            </motion.div>
+                <p className="text-sm tabular-nums text-on-surface-dim">
+                  <motion.span>{shown}</motion.span> / {rung.span.toLocaleString()}
+                </p>
+              </motion.div>
             </div>
           </div>
-
-
         </div>
 
         {/* The week sits a little apart from the button: it's a record, not
@@ -369,7 +369,6 @@ export function Home({
           <WeekStrip week={week} arrived={arrived} />
         </div>
       </div>
-
 
       {/* Two rows of the same control: which cat, then which colour. The cat
           comes first because she is the thing you just looked at. */}

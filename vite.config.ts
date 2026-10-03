@@ -14,6 +14,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered by core/update.ts instead, which asks for
+      // `updateViaCache: 'none'` — see the note there.
+      injectRegister: false,
       includeAssets: ['icon.svg'],
       manifest: {
         name: 'Doei!',
@@ -45,7 +48,8 @@ export default defineConfig({
         // its text, so a kept one never goes stale.
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => url.pathname.includes('/audio/') && url.pathname.endsWith('.ogg'),
+            urlPattern: ({ url }) =>
+              url.pathname.includes('/audio/') && url.pathname.endsWith('.ogg'),
             handler: 'CacheFirst',
             options: {
               cacheName: 'recordings',
