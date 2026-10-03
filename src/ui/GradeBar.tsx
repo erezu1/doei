@@ -26,13 +26,14 @@ export function GradeBar({ onGrade }: { onGrade: (grade: Grade) => void }) {
 }
 
 /**
- * The clock, in milliseconds: the same wait a right answer used to sit through
- * with no button on screen at all.
+ * The clock, in milliseconds. It was the 1400 a right answer used to sit
+ * through with nothing on screen, which turned out to be a fine length to
+ * watch an answer and far too short to read a word and decide to press it.
  */
-const COUNTDOWN = 1400
+const COUNTDOWN = 2000
 /**
  * Under this, a press is a tap. Android's own long-press is 500ms, which would
- * eat a third of the clock before the word had changed.
+ * eat a quarter of the clock before the word had changed.
  */
 const HOLD = 220
 /** The clock running back to nothing once a tap has stopped it, in seconds. */
@@ -41,15 +42,19 @@ const DRAIN = 0.2
 const AFTER_PRESS = 400
 
 /**
- * running — the clock is going, and the button says so.
- * held    — a finger is down past the threshold; the clock is frozen.
+ * running — the clock is going.
+ * held    — a finger is down past the threshold; the clock is frozen under it,
+ *           and goes on from where it stopped when the finger lifts.
  * stopped — a tap has ended the clock for good. An ordinary Continue.
+ *
+ * So a hold is a look, and a tap is a decision. One word each: the invitation,
+ * the state you put it in, and the thing left to do.
  */
 type Phase = 'running' | 'held' | 'stopped'
 
 const LABEL: Record<Phase, string> = {
-  running: 'Tap to pause',
-  held: 'Release to continue',
+  running: 'Pause',
+  held: 'Paused',
   stopped: 'Continue',
 }
 
@@ -142,8 +147,12 @@ export function ContinueBar({
         clearTimeout(holdTimer.current)
         holdTimer.current = null
       }
-      if (phase === 'held') onContinue()
-      else stop()
+      // A hold was only ever a look at the card: the clock picks up where the
+      // finger stopped it. A tap meant something, and ends it.
+      if (phase === 'held') {
+        running.current?.play()
+        setPhase('running')
+      } else stop()
     }
     window.addEventListener('pointerup', finish)
     window.addEventListener('pointercancel', finish)
@@ -151,7 +160,7 @@ export function ContinueBar({
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
     }
-  }, [pressing, phase, onContinue, stop])
+  }, [pressing, phase, stop])
 
   const click = () => {
     // The press has already said what it meant.
