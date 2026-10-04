@@ -19,15 +19,19 @@ import { headPath, lidPaths, EAR_TURN, type Mood } from './cat'
 
 type Path = { cmds: string[]; nums: number[][] }
 const parse = (d: string): Path => {
-  const cmds: string[] = [], nums: number[][] = []
+  const cmds: string[] = [],
+    nums: number[][] = []
   for (const m of d.matchAll(/([MCZ])([^MCZ]*)/g)) {
-    cmds.push(m[1]); nums.push((m[2].match(/-?\d*\.?\d+/g) ?? []).map(Number))
+    cmds.push(m[1])
+    nums.push((m[2].match(/-?\d*\.?\d+/g) ?? []).map(Number))
   }
   return { cmds, nums }
 }
-const write = (p: Path) => p.cmds.map((c, i) => c + p.nums[i].map((v) => v.toFixed(2)).join(' ')).join('')
+const write = (p: Path) =>
+  p.cmds.map((c, i) => c + p.nums[i].map((v) => v.toFixed(2)).join(' ')).join('')
 const lerpPath = (a: Path, b: Path, t: number): Path => ({
-  cmds: a.cmds, nums: a.nums.map((row, i) => row.map((v, j) => v + (b.nums[i][j] - v) * t)),
+  cmds: a.cmds,
+  nums: a.nums.map((row, i) => row.map((v, j) => v + (b.nums[i][j] - v) * t)),
 })
 const map = (a: Path, f: (x: number, y: number) => [number, number]): Path => ({
   cmds: a.cmds,
@@ -36,7 +40,8 @@ const map = (a: Path, f: (x: number, y: number) => [number, number]): Path => ({
 
 // She turns about her own middle: halfway between the crown (14.95) and the
 // floor (100), so a half turn lands her crown exactly where her chin was.
-const CX = 60, CY = 57.5
+const CX = 60,
+  CY = 57.5
 const REST = parse(headPath(0.85))
 // Off the floor and turning, a head has no flat on it anywhere: the round
 // head, moved down three so its centre is the centre she turns about.
@@ -61,17 +66,20 @@ const feet = (a: Path): [number, number, number] => {
   // a control point can sit on the floor line well out past where the curve
   // has already lifted off it.
   const pts: [number, number][] = []
-  let x0 = a.nums[0][0], y0 = a.nums[0][1]
+  let x0 = a.nums[0][0],
+    y0 = a.nums[0][1]
   for (let i = 1; i < a.cmds.length; i++) {
     const r = a.nums[i]
     if (a.cmds[i] !== 'C') continue
     for (let k = 0; k <= 24; k++) {
-      const t = k / 24, u = 1 - t
+      const t = k / 24,
+        u = 1 - t
       const x = u * u * u * x0 + 3 * u * u * t * r[0] + 3 * u * t * t * r[2] + t * t * t * r[4]
       const y = u * u * u * y0 + 3 * u * u * t * r[1] + 3 * u * t * t * r[3] + t * t * t * r[5]
       pts.push([x, y])
     }
-    x0 = r[4]; y0 = r[5]
+    x0 = r[4]
+    y0 = r[5]
   }
   // What counts as on the floor is everything within a unit and a half of the
   // lowest point — the base is a very shallow curve, and what it rocks on is
@@ -93,7 +101,10 @@ const smooth = (t: number) => t * t * (3 - 2 * t)
 const bump = (p: number, a: number, b: number) => Math.sin(Math.PI * seg(p, a, b))
 // Overshoots by a little and comes back: weight arriving, not a value
 // reaching a target.
-const land = (t: number, k = 1.5) => { const u = t - 1; return 1 + (k + 1) * u * u * u + k * u * u }
+const land = (t: number, k = 1.5) => {
+  const u = t - 1
+  return 1 + (k + 1) * u * u * u + k * u * u
+}
 
 // The turn is one steep curve. She starts slowly — a lean you could mistake
 // for curiosity — then nearly all of the half turn goes by at once, and she
@@ -105,7 +116,10 @@ const S = (t: number, k: number) => {
 }
 // How fast the turn is going, as a 0..1 pulse centred on the whip: the
 // logistic's own derivative, so it is exactly as sharp as the turn.
-const whipAt = (t: number, k: number) => { const e = Math.exp(-k * (clamp(t) - 0.5)); return (4 * e) / ((1 + e) * (1 + e)) }
+const whipAt = (t: number, k: number) => {
+  const e = Math.exp(-k * (clamp(t) - 0.5))
+  return (4 * e) / ((1 + e) * (1 + e))
+}
 // The whip at a third of the way through rather than halfway, so the lean
 // before it is a lean and not a wait; the time it gives up goes to the landing.
 const rollOf = (p: number) => {
@@ -123,21 +137,39 @@ export type FlipMood = 'happy' | 'yawn' | 'up' | 'down' | 'swat'
  */
 export type FlipRest = 'content' | 'downL' | 'downC' | 'downR'
 const REST_GAZE: Record<FlipRest, [number, number]> = {
-  content: [0, 0], downL: [-4.5, 4.5], downC: [0, 5], downR: [4.5, 4.5],
+  content: [0, 0],
+  downL: [-4.5, 4.5],
+  downC: [0, 5],
+  downR: [4.5, 4.5],
 }
 // A little lean after her eyes, as the upright reading looks have.
 const REST_ROCK: Record<FlipRest, number> = { content: 0, downL: 3, downC: 0, downR: -3 }
 /** The numbers of an upright mood that the roll back has to arrive at. */
 export interface Landing {
-  squash: number; rise: number; tilt: number; earTurn: number; earOut: number; earDown: number
+  squash: number
+  rise: number
+  tilt: number
+  earTurn: number
+  earOut: number
+  earDown: number
 }
 export const landingOf = (m: Mood): Landing => ({
-  squash: m.squash ?? 0.85, rise: m.rise ?? 0, tilt: m.tilt ?? 0,
-  earTurn: m.ear ? (EAR_TURN[m.ear] ?? 0) : 0, earOut: m.earOut ?? 0, earDown: m.earDown ?? 0,
+  squash: m.squash ?? 0.85,
+  rise: m.rise ?? 0,
+  tilt: m.tilt ?? 0,
+  earTurn: m.ear ? (EAR_TURN[m.ear] ?? 0) : 0,
+  earOut: m.earOut ?? 0,
+  earDown: m.earDown ?? 0,
 })
-const MOOD_MS: Record<FlipMood, number> = { happy: 1900, yawn: 2800, up: 2200, down: 2200, swat: 1150 }
+const MOOD_MS: Record<FlipMood, number> = {
+  happy: 1900,
+  yawn: 2800,
+  up: 2200,
+  down: 2200,
+  swat: 1150,
+}
 const envelope = (t: number, a = 0.18, r = 0.28) =>
-  (t <= 0 || t >= 1 ? 0 : Math.min(smooth(clamp(t / a)), smooth(clamp((1 - t) / r))))
+  t <= 0 || t >= 1 ? 0 : Math.min(smooth(clamp(t / a)), smooth(clamp((1 - t) / r)))
 
 // How long a replaced reaction takes to let go.
 const LET_GO = 260
@@ -145,8 +177,19 @@ const OVER_MS = 1600
 const BACK_MS = 1500
 const JUMP_MS = 1050
 
-interface MoodRun { name: FlipMood; at: number; side: number; endAt: number }
-interface Saved { el: SVGElement; transform: string; origin: string; box: string; transition: string }
+interface MoodRun {
+  name: FlipMood
+  at: number
+  side: number
+  endAt: number
+}
+interface Saved {
+  el: SVGElement
+  transform: string
+  origin: string
+  box: string
+  transition: string
+}
 
 export class Flip {
   svg: SVGSVGElement
@@ -188,14 +231,27 @@ export class Flip {
   #contactOpacity = ''
   #contactTf: (string | null)[] = []
 
-  heads: SVGElement[]; earsL: SVGElement[]; earsR: SVGElement[]
-  pawsL: SVGElement[]; pawsR: SVGElement[]
-  skulls: SVGElement[]; shade: Element | null; contact: SVGElement[]
+  heads: SVGElement[]
+  earsL: SVGElement[]
+  earsR: SVGElement[]
+  pawsL: SVGElement[]
+  pawsR: SVGElement[]
+  skulls: SVGElement[]
+  shade: Element | null
+  contact: SVGElement[]
   whiskers: SVGElement[]
   #whiskerTf: string[] = []
   contactClip: SVGElement | null
   glints: { el: SVGElement; cx: number; cy: number }[]
-  lids: { mask: SVGPathElement; lash: SVGPathElement | null; cx: number; cy: number; rx: number; ry: number; t0: number }[]
+  lids: {
+    mask: SVGPathElement
+    lash: SVGPathElement | null
+    cx: number
+    cy: number
+    rx: number
+    ry: number
+    t0: number
+  }[]
 
   constructor(svg: SVGSVGElement, face: (eyes: string, mouth: string) => void) {
     this.svg = svg
@@ -204,8 +260,10 @@ export class Flip {
     // Every part is drawn twice — the outline pass, then the fills — and both
     // copies have to move as one or the union silhouette tears.
     this.heads = q('.cat-head')
-    this.earsL = q('.cat-ear-l'); this.earsR = q('.cat-ear-r')
-    this.pawsL = q('.cat-paw-l'); this.pawsR = q('.cat-paw-r')
+    this.earsL = q('.cat-ear-l')
+    this.earsR = q('.cat-ear-r')
+    this.pawsL = q('.cat-paw-l')
+    this.pawsR = q('.cat-paw-r')
     this.skulls = q('.cat-skull, .cat-skull-line, .cat-shade')
     // The coat's clip turns with the head; the contact shadow's does not — it
     // lives on screen, where the outline ends up the resting one anyway.
@@ -225,7 +283,8 @@ export class Flip {
     this.glints = q<SVGGElement>('.cat-pupil').flatMap((g) => {
       const e = g.querySelector('ellipse')
       if (!e) return []
-      const cx = +e.getAttribute('cx')!, cy = +e.getAttribute('cy')!
+      const cx = +e.getAttribute('cx')!,
+        cy = +e.getAttribute('cy')!
       return [...g.querySelectorAll<SVGElement>('circle')].map((el) => ({ el, cx, cy }))
     })
     this.lids = q<SVGPathElement>('.cat-lidmask').map((mask) => {
@@ -236,12 +295,23 @@ export class Flip {
   }
 
   /** Anywhere but upright, or on the way. */
-  get engaged() { return this.#raf !== 0 || this.p > 0 }
+  get engaged() {
+    return this.#raf !== 0 || this.p > 0
+  }
   /** All the way over and not moving. */
-  get down() { return this.p === 1 && this.#to === 1 }
-  get turning() { return this.p !== this.#to }
+  get down() {
+    return this.p === 1 && this.#to === 1
+  }
+  get turning() {
+    return this.p !== this.#to
+  }
 
-  over(then?: () => void) { this.#land = null; this.#onShadow = null; this.#faceHeld = false; this.#go(1, OVER_MS, then) }
+  over(then?: () => void) {
+    this.#land = null
+    this.#onShadow = null
+    this.#faceHeld = false
+    this.#go(1, OVER_MS, then)
+  }
   /**
    * Back up — into a particular upright mood. The last stretch of the roll
    * blends her head's shape, lift, lean and ears to that mood's own numbers,
@@ -249,23 +319,34 @@ export class Flip {
    * channels, so that when she is handed back the rig's drawing of her is
    * the frame after the last one drawn here rather than a new move.
    */
-  back({ quick = false, land, shadow }: { quick?: boolean; land?: Landing; shadow?: () => void } = {}, then?: () => void) {
+  back(
+    { quick = false, land, shadow }: { quick?: boolean; land?: Landing; shadow?: () => void } = {},
+    then?: () => void,
+  ) {
     this.#land = land ?? null
     this.#landShape = land ? parse(headPath(land.squash)) : null
     this.#onShadow = shadow ?? null
     this.#faceHeld = false
     this.#go(0, quick ? JUMP_MS : BACK_MS, then)
   }
-  setRest(r: FlipRest) { this.#rest = r }
-  get rest() { return this.#rest }
+  setRest(r: FlipRest) {
+    this.#rest = r
+  }
+  get rest() {
+    return this.#rest
+  }
   /** The strongest thing she is doing right now: a reaction if one is under way, else her rest. */
   dominant(): FlipMood | FlipRest {
     const now = performance.now()
-    let best: MoodRun | null = null, bw = 0.15
+    let best: MoodRun | null = null,
+      bw = 0.15
     for (const m of this.#moods) {
       if (Number.isFinite(m.endAt)) continue
       const w = envelope((now - m.at) / MOOD_MS[m.name])
-      if (w > bw) { bw = w; best = m }
+      if (w > bw) {
+        bw = w
+        best = m
+      }
     }
     return best?.name ?? this.#rest
   }
@@ -275,7 +356,40 @@ export class Flip {
     return m ? Math.max(0, MOOD_MS[name] - (performance.now() - m.at)) : 0
   }
   /** Straight onto her back with no move — for a redraw that happens while she is already there. */
-  set(p: number) { this.#take(); this.p = this.#from = this.#to = p; this.#run() }
+  set(p: number) {
+    this.#take()
+    this.p = this.#from = this.#to = p
+    this.#run()
+  }
+
+  /**
+   * Where she is in a roll, so a redraw can pick it up.
+   *
+   * Everything here is either a number or a reaction stamped with the clock
+   * both drawings read, which is what lets the new one carry on rather than
+   * start again: a cat caught a third of the way over used to be redrawn on
+   * her feet, and for a moment you saw a different cat in a different mood.
+   */
+  reading() {
+    return {
+      p: this.p,
+      to: this.#to,
+      rest: this.#rest,
+      side: this.#side,
+      sulk: this.sulk,
+      moods: this.#moods.map((m) => ({ ...m })),
+    }
+  }
+
+  /** Put a fresh drawing exactly where the last one was. The move itself is
+   *  re-issued by the rig, which owns what happens when it lands. */
+  place(was: ReturnType<Flip['reading']>) {
+    this.#rest = was.rest
+    this.#side = was.side
+    this.sulk = was.sulk
+    this.#moods = was.moods.map((m) => ({ ...m }))
+    this.set(was.p)
+  }
 
   react(name: FlipMood) {
     if (name === 'swat') this.#side = -this.#side
@@ -288,7 +402,9 @@ export class Flip {
     const m = this.#moods.at(-1)
     return m && !Number.isFinite(m.endAt) ? m.name : null
   }
-  static ms(name: FlipMood) { return MOOD_MS[name] }
+  static ms(name: FlipMood) {
+    return MOOD_MS[name]
+  }
 
   destroy() {
     cancelAnimationFrame(this.#raf)
@@ -298,7 +414,9 @@ export class Flip {
 
   #go(to: number, ms: number, then?: () => void) {
     this.#take()
-    this.#from = this.p; this.#to = to; this.#t0 = performance.now()
+    this.#from = this.p
+    this.#to = to
+    this.#t0 = performance.now()
     this.#dur = ms * Math.max(0.35, Math.abs(to - this.p))
     this.#then = then ?? null
     this.#run()
@@ -315,13 +433,19 @@ export class Flip {
         const k = clamp((now - this.#t0) / this.#dur)
         this.p = k >= 1 ? this.#to : this.#from + (this.#to - this.#from) * k
       }
-      this.#moods = this.#moods.filter((m) => now - m.at < MOOD_MS[m.name] && now - m.endAt < LET_GO)
+      this.#moods = this.#moods.filter(
+        (m) => now - m.at < MOOD_MS[m.name] && now - m.endAt < LET_GO,
+      )
       this.#pose(now)
       const then = this.p === this.#to ? this.#then : null
       if (then) this.#then = null
       // Back up with nothing left to do: hand every part back and stop, and
       // only then say so — whatever happens next poses the rig's own drawing.
-      if (this.p === 0 && this.#to === 0 && !this.#moods.length) { this.#give(); then?.(); return }
+      if (this.p === 0 && this.#to === 0 && !this.#moods.length) {
+        this.#give()
+        then?.()
+        return
+      }
       then?.()
       // `then` may have started the loop itself — a reaction on landing — and
       // one loop is the most there can be. Two drew over each other, and the
@@ -336,16 +460,34 @@ export class Flip {
   // again is the rig's own drawing, not an approximation of it.
   #take() {
     if (this.#saved.length) return
-    const els = [...this.heads, ...this.earsL, ...this.earsR, ...this.pawsL, ...this.pawsR, ...this.glints.map((g) => g.el),
-      ...(this.contactClip ? [this.contactClip] : [])]
+    const els = [
+      ...this.heads,
+      ...this.earsL,
+      ...this.earsR,
+      ...this.pawsL,
+      ...this.pawsR,
+      ...this.glints.map((g) => g.el),
+      ...(this.contactClip ? [this.contactClip] : []),
+    ]
     this.#saved = els.map((el) => ({
-      el, transform: el.style.transform, origin: el.style.transformOrigin,
-      box: el.style.transformBox, transition: el.style.transition,
+      el,
+      transform: el.style.transform,
+      origin: el.style.transformOrigin,
+      box: el.style.transformBox,
+      transition: el.style.transition,
     }))
-    for (const el of els) { el.style.transformBox = 'view-box'; el.style.transition = 'none' }
-    this.#skullD = this.skulls.map((el) => ({ el, d: el.style.getPropertyValue('d'), transition: el.style.transition }))
+    for (const el of els) {
+      el.style.transformBox = 'view-box'
+      el.style.transition = 'none'
+    }
+    this.#skullD = this.skulls.map((el) => ({
+      el,
+      d: el.style.getPropertyValue('d'),
+      transition: el.style.transition,
+    }))
     for (const el of this.skulls) el.style.transition = 'none'
-    this.#contactOpacity = (this.contact[0]?.parentNode as SVGElement | null)?.getAttribute('opacity') ?? ''
+    this.#contactOpacity =
+      (this.contact[0]?.parentNode as SVGElement | null)?.getAttribute('opacity') ?? ''
     this.#contactTf = this.contact.map((c) => c.getAttribute('transform'))
     this.#whiskerTf = this.whiskers.map((w) => w.style.transform)
     this.#shown = ''
@@ -354,28 +496,39 @@ export class Flip {
 
   #give() {
     for (const s of this.#saved) {
-      s.el.style.transform = s.transform; s.el.style.transformOrigin = s.origin
-      s.el.style.transformBox = s.box; s.el.style.transition = s.transition
+      s.el.style.transform = s.transform
+      s.el.style.transformOrigin = s.origin
+      s.el.style.transformBox = s.box
+      s.el.style.transition = s.transition
     }
     // The head's outline is left as the last frame drew it, which is the shape
     // of the mood she is landing in — putting back the shape from before she
     // went over and letting the rig's transition walk it to the new one was a
     // second, smaller move after the landing.
-    for (const s of this.#skullD) { if (!this.#land) s.el.style.setProperty('d', s.d); s.el.style.transition = s.transition }
+    for (const s of this.#skullD) {
+      if (!this.#land) s.el.style.setProperty('d', s.d)
+      s.el.style.transition = s.transition
+    }
     this.contact.forEach((c, i) => {
       const t = this.#contactTf[i]
-      if (t === null) c.removeAttribute('transform'); else c.setAttribute('transform', t)
+      if (t === null) c.removeAttribute('transform')
+      else c.setAttribute('transform', t)
     })
     const g = this.contact[0]?.parentNode as SVGElement | null
     if (g && this.#contactOpacity) g.setAttribute('opacity', this.#contactOpacity)
     this.shade?.removeAttribute('gradientTransform')
-    this.svg.style.removeProperty('--gaze-x'); this.svg.style.removeProperty('--gaze-y')
+    this.svg.style.removeProperty('--gaze-x')
+    this.svg.style.removeProperty('--gaze-y')
     for (const l of this.lids) {
       const lp = lidPaths(l.cx, l.cy, l.rx, l.ry, l.t0)
-      l.mask.setAttribute('d', lp.mask); l.lash?.setAttribute('d', lp.lash)
+      l.mask.setAttribute('d', lp.mask)
+      l.lash?.setAttribute('d', lp.lash)
     }
-    this.whiskers.forEach((w, i) => { w.style.transform = this.#whiskerTf[i] })
-    this.#saved = []; this.#skullD = []
+    this.whiskers.forEach((w, i) => {
+      w.style.transform = this.#whiskerTf[i]
+    })
+    this.#saved = []
+    this.#skullD = []
     this.sulk = false
     delete this.svg.dataset.flip
   }
@@ -389,13 +542,19 @@ export class Flip {
   }
 
   #pose(now: number) {
-    const p = this.p, time = now / 1000
+    const p = this.p,
+      time = now / 1000
     // Each reaction's weight is its own envelope, times how far it has let go
     // if something has replaced it. Each keeps its own clock, so the parts of
     // it that move through time — a reach, a lean — carry on while it fades.
     const weight = (m: MoodRun) =>
-      envelope((now - m.at) / MOOD_MS[m.name]) * (Number.isFinite(m.endAt) ? 1 - smooth(clamp((now - m.endAt) / LET_GO)) : 1)
-    const is = (n: FlipMood) => Math.min(1, this.#moods.reduce((a, m) => a + (m.name === n ? weight(m) : 0), 0))
+      envelope((now - m.at) / MOOD_MS[m.name]) *
+      (Number.isFinite(m.endAt) ? 1 - smooth(clamp((now - m.endAt) / LET_GO)) : 1)
+    const is = (n: FlipMood) =>
+      Math.min(
+        1,
+        this.#moods.reduce((a, m) => a + (m.name === n ? weight(m) : 0), 0),
+      )
     const clockOf = (n: FlipMood) => {
       const m = this.#moods.filter((x) => x.name === n).at(-1)
       return m ? (now - m.at) / MOOD_MS[n] : 1
@@ -406,17 +565,24 @@ export class Flip {
     const dt = this.#last ? Math.min(0.1, (now - this.#last) / 1000) : 0
     this.#last = now
     const k = 1 - Math.exp(-dt / 0.25)
-    for (const r of Object.keys(this.#restW) as FlipRest[]) this.#restW[r] += ((r === this.#rest ? 1 : 0) - this.#restW[r]) * k
+    for (const r of Object.keys(this.#restW) as FlipRest[])
+      this.#restW[r] += ((r === this.#rest ? 1 : 0) - this.#restW[r]) * k
     const rw = this.#restW
     // Getting up into a mood: the last fifth of the way back is where her
     // head takes on that mood's shape, lift, lean and ears. Just before it
     // starts, the rig is told, and puts the mood's face and channels on.
     const L = this.#land
     if (L && this.#to === 0 && this.p < 0.3 && this.#onShadow) {
-      const f = this.#onShadow; this.#onShadow = null; this.#faceHeld = true; f()
+      const f = this.#onShadow
+      this.#onShadow = null
+      this.#faceHeld = true
+      f()
     }
     const u = L && this.#to === 0 ? smooth(1 - seg(this.p, 0, 0.22)) : 0
-    const happy = is('happy'), yawn = is('yawn'), up = is('up'), down = is('down')
+    const happy = is('happy'),
+      yawn = is('yawn'),
+      up = is('up'),
+      down = is('down')
     const side = md?.side ?? this.#side
 
     // The swat: the face goes first, then one paw — back and up, fast, then
@@ -457,14 +623,15 @@ export class Flip {
     // The rig's own breath, read from the same channel it breathes on, so the
     // frame she is handed back on breathes exactly as the frame before it.
     const BREATH = 'var(--breath, 0)'
-    const sway = held * 2.2 * Math.sin(time * 0.9)
-      + happy * 5 * Math.sin(time * 11)
-      + yawn * 4 * Math.sin(Math.PI * clamp(clockOf('yawn')))
-      + (down - up) * 2.5 * Math.sign(Math.cos(Math.PI * turn))
+    const sway =
+      held * 2.2 * Math.sin(time * 0.9) +
+      happy * 5 * Math.sin(time * 11) +
+      yawn * 4 * Math.sin(Math.PI * clamp(clockOf('yawn'))) +
+      (down - up) * 2.5 * Math.sign(Math.cos(Math.PI * turn)) +
       // The wind-up has to let go too: held at the end of a swat, it left
       // her leaning three degrees one way or the other until the next one.
-      + side * (-3 * wind * (1 - recover) + 9 * jolt)
-      + held * (REST_ROCK.downL * rw.downL + REST_ROCK.downR * rw.downR)
+      side * (-3 * wind * (1 - recover) + 9 * jolt) +
+      held * (REST_ROCK.downL * rw.downL + REST_ROCK.downR * rw.downR)
     // The sway is a rock, and a rock pivots on whichever corner of her flat is
     // on the side she is rocking toward: the right one clockwise, the left one
     // the other way. Where the pivot swaps sides the angle is nought, so the
@@ -481,7 +648,10 @@ export class Flip {
     // --- skull: resting, round in the air, resting again the other way up.
     const m = turn
     const upright = this.#landShape && u > 0 ? lerpPath(REST, this.#landShape, u) : REST
-    const shape = m < 0.5 ? lerpPath(upright, ROUND, smooth(m * 2)) : lerpPath(ROUND_T, REST_T, smooth((m - 0.5) * 2))
+    const shape =
+      m < 0.5
+        ? lerpPath(upright, ROUND, smooth(m * 2))
+        : lerpPath(ROUND_T, REST_T, smooth((m - 0.5) * 2))
     const d = `path('${write(shape)}')`
     for (const s of this.skulls) s.style.setProperty('d', d)
 
@@ -512,8 +682,14 @@ export class Flip {
       `translate(${CX}px, ${CY}px) rotate(${theta.toFixed(2)}deg) translate(${-CX}px, ${-CY}px) ` +
       `translate(${CX}px, ${oy}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)}) ` +
       `scale(calc(1 - ${BREATH} * 0.006), calc(1 + ${BREATH} * 0.013)) translate(${-CX}px, ${-oy}px)`
-    for (const h of this.heads) { h.style.transformOrigin = '0 0'; h.style.transform = head }
-    if (this.contactClip) { this.contactClip.style.transformOrigin = '0 0'; this.contactClip.style.transform = head }
+    for (const h of this.heads) {
+      h.style.transformOrigin = '0 0'
+      h.style.transform = head
+    }
+    if (this.contactClip) {
+      this.contactClip.style.transformOrigin = '0 0'
+      this.contactClip.style.transform = head
+    }
 
     // --- ears: back and short as she gathers, shortest through the whip —
     // on her side, out is down, and the ear nearest the floor is the one being
@@ -521,9 +697,14 @@ export class Flip {
     // flat back, the one thing every cat does before it swipes.
     const fold = Math.max(0.55 * gather, whip)
     const earLand = land(seg(rollT, 0.58, 0.96), 2.2)
-    const flick = held * (Math.max(0, Math.sin(time * 2.7 + 1.3)) ** 24)
+    const flick = held * Math.max(0, Math.sin(time * 2.7 + 1.3)) ** 24
     const earA = -(24 * earLand - 7 * flick + 16 * crossEars)
-    const earS = (1 - 0.12 * earLand) * (1 - 0.42 * fold) * (1 - 0.22 * yawn) * (1 + 0.08 * up) * (1 - 0.34 * crossEars)
+    const earS =
+      (1 - 0.12 * earLand) *
+      (1 - 0.42 * fold) *
+      (1 - 0.22 * yawn) *
+      (1 + 0.08 * up) *
+      (1 - 0.34 * crossEars)
     const earW = 1 + 0.05 * earLand
     // The rig's ear pose, blended in over the landing: nudged out and down by
     // the head's lift and the mood's own offsets, and turned for perk or flat.
@@ -532,8 +713,14 @@ export class Flip {
       `translate(${(u * (eLift * 2.5 * out + (L?.earOut ?? 0) * out)).toFixed(2)}px, ${(u * (eLift * -4 + (L?.earDown ?? 0))).toFixed(2)}px) ` +
       `rotate(${(a * (1 - u) + turn * u).toFixed(2)}deg) scale(${(1 + (earW - 1) * (1 - u)).toFixed(3)}, ${(1 + (earS - 1) * (1 - u)).toFixed(3)})`
     const turnL = L?.earTurn ?? 0
-    for (const e of this.earsL) { e.style.transformOrigin = '28px 40px'; e.style.transform = ear(1, earA, turnL) }
-    for (const e of this.earsR) { e.style.transformOrigin = '92px 40px'; e.style.transform = ear(-1, -earA, -turnL) }
+    for (const e of this.earsL) {
+      e.style.transformOrigin = '28px 40px'
+      e.style.transform = ear(1, earA, turnL)
+    }
+    for (const e of this.earsR) {
+      e.style.transformOrigin = '92px 40px'
+      e.style.transform = ear(-1, -earA, -turnL)
+    }
 
     // --- paws: they end where turning the whole of her half round would put
     // them — the upright pose upside down, toes up. Half a turn about her
@@ -554,17 +741,34 @@ export class Flip {
     const dy = -69 * (pq + flop) - 3 * gather * (1 - pq)
     const turnP = 180 * pq
     const reachY = 8 * reach * Math.cos(Math.PI * pq)
-    const pawL = { x: -out - 8 * reach, y: dy + held * 1.3 * knead + reachY, a: turnP + 5 * knead - 14 * reach }
-    const pawR = { x: out + 8 * reach, y: dy - held * 1.3 * knead + reachY, a: -turnP + 5 * knead + 14 * reach }
+    const pawL = {
+      x: -out - 8 * reach,
+      y: dy + held * 1.3 * knead + reachY,
+      a: turnP + 5 * knead - 14 * reach,
+    }
+    const pawR = {
+      x: out + 8 * reach,
+      y: dy - held * 1.3 * knead + reachY,
+      a: -turnP + 5 * knead + 14 * reach,
+    }
     // One paw swats; the other braces. The paw keeps its size — the strike is
     // in the speed and the arc, not in the paw growing.
-    const hit = side > 0 ? pawL : pawR, brace = side > 0 ? pawR : pawL
+    const hit = side > 0 ? pawL : pawR,
+      brace = side > 0 ? pawR : pawL
     const outward = side > 0 ? -1 : 1
-    hit.y += swatY; hit.a += outward * swatA; hit.x += outward * 6 * jolt
+    hit.y += swatY
+    hit.a += outward * swatA
+    hit.x += outward * 6 * jolt
     brace.y += 3 * angry
     const pawS = 1 + 0.05 * pw
-    for (const e of this.pawsL) { e.style.transformOrigin = '27px 92px'; e.style.transform = `translate(${pawL.x.toFixed(2)}px, ${pawL.y.toFixed(2)}px) rotate(${pawL.a.toFixed(2)}deg) scale(${pawS.toFixed(3)})` }
-    for (const e of this.pawsR) { e.style.transformOrigin = '93px 92px'; e.style.transform = `translate(${pawR.x.toFixed(2)}px, ${pawR.y.toFixed(2)}px) rotate(${pawR.a.toFixed(2)}deg) scale(${pawS.toFixed(3)})` }
+    for (const e of this.pawsL) {
+      e.style.transformOrigin = '27px 92px'
+      e.style.transform = `translate(${pawL.x.toFixed(2)}px, ${pawL.y.toFixed(2)}px) rotate(${pawL.a.toFixed(2)}deg) scale(${pawS.toFixed(3)})`
+    }
+    for (const e of this.pawsR) {
+      e.style.transformOrigin = '93px 92px'
+      e.style.transform = `translate(${pawR.x.toFixed(2)}px, ${pawR.y.toFixed(2)}px) rotate(${pawR.a.toFixed(2)}deg) scale(${pawS.toFixed(3)})`
+    }
     // The shadows the paws cast on her face follow them, and are gone while
     // the paws are in the air.
     const [cl, cr] = this.contact
@@ -572,7 +776,10 @@ export class Flip {
       const sh = dy + 16 * pq
       cl.setAttribute('transform', `translate(${pawL.x.toFixed(2)} ${sh.toFixed(2)})`)
       cr.setAttribute('transform', `translate(${pawR.x.toFixed(2)} ${sh.toFixed(2)})`)
-      ;(cl.parentNode as SVGElement).setAttribute('opacity', (0.26 * (1 - Math.sin(Math.PI * pq))).toFixed(3))
+      ;(cl.parentNode as SVGElement).setAttribute(
+        'opacity',
+        (0.26 * (1 - Math.sin(Math.PI * pq))).toFixed(3),
+      )
     }
 
     // --- whiskers: they fan out and down from her cheeks, and turned half
@@ -590,7 +797,10 @@ export class Flip {
 
     // --- light: the room does not turn over with her.
     this.shade?.setAttribute('gradientTransform', `rotate(${(-spin).toFixed(2)} .5 .5)`)
-    for (const { el, cx, cy } of this.glints) { el.style.transformOrigin = `${cx}px ${cy}px`; el.style.transform = `rotate(${(-spin).toFixed(2)}deg)` }
+    for (const { el, cx, cy } of this.glints) {
+      el.style.transformOrigin = `${cx}px ${cy}px`
+      el.style.transform = `rotate(${(-spin).toFixed(2)}deg)`
+    }
 
     // --- gaze: asked for on screen, turned into her frame.
     // Her rest's look and any reaction's look add, as the rig's own gaze and
@@ -598,22 +808,49 @@ export class Flip {
     // which the rig is drawing through its own gaze channel by then.
     const restOn = held * (1 - Math.max(up, down))
     const sgx = restOn * (REST_GAZE.downL[0] * rw.downL + REST_GAZE.downR[0] * rw.downR)
-    const sgy = restOn * (REST_GAZE.downL[1] * rw.downL + REST_GAZE.downC[1] * rw.downC + REST_GAZE.downR[1] * rw.downR)
-      + 4.2 * (down - up)
-    const a = -(spin * Math.PI) / 180, fade = 1 - u
-    this.svg.style.setProperty('--gaze-x', (fade * (sgx * Math.cos(a) - sgy * Math.sin(a))).toFixed(2) + 'px')
-    this.svg.style.setProperty('--gaze-y', (fade * (sgx * Math.sin(a) + sgy * Math.cos(a))).toFixed(2) + 'px')
+    const sgy =
+      restOn *
+        (REST_GAZE.downL[1] * rw.downL +
+          REST_GAZE.downC[1] * rw.downC +
+          REST_GAZE.downR[1] * rw.downR) +
+      4.2 * (down - up)
+    const a = -(spin * Math.PI) / 180,
+      fade = 1 - u
+    this.svg.style.setProperty(
+      '--gaze-x',
+      (fade * (sgx * Math.cos(a) - sgy * Math.sin(a))).toFixed(2) + 'px',
+    )
+    this.svg.style.setProperty(
+      '--gaze-y',
+      (fade * (sgx * Math.sin(a) + sgy * Math.cos(a))).toFixed(2) + 'px',
+    )
 
     // --- faces, swapped at the top of each envelope.
-    this.#show(cross > 0.2 ? 'angry' : happy > 0.35 ? 'happy' : yawn > 0.3 ? 'sleepy' : 'open',
-      angry > 0.2 ? 'open' : this.sulk ? 'neutral' : happy > 0.35 ? 'smile' : yawn > 0.25 ? 'yawn' : 'neutral')
+    this.#show(
+      cross > 0.2 ? 'angry' : happy > 0.35 ? 'happy' : yawn > 0.3 ? 'sleepy' : 'open',
+      angry > 0.2
+        ? 'open'
+        : this.sulk
+          ? 'neutral'
+          : happy > 0.35
+            ? 'smile'
+            : yawn > 0.25
+              ? 'yawn'
+              : 'neutral',
+    )
 
     // --- eyes: squeezed shut for the whip, then slow blinks, content.
     const squeeze = Math.max(bump(rollT, 0.36, 0.7), 0.6 * gather) * (this.sulk ? 0.35 : 1)
     const phase = (time % 4.6) / 4.6
-    const lazy = held * (phase > 0.9 ? Math.sin(Math.PI * (phase - 0.9) / 0.1) : 0)
+    const lazy = held * (phase > 0.9 ? Math.sin((Math.PI * (phase - 0.9)) / 0.1) : 0)
     // The content half-lid is the content rest's; reading, her eyes are open.
-    const shut = Math.max(squeeze, lazy * 0.95 * (1 - up - down), held * 0.28 * rw.content * (1 - Math.max(up, down, cross))) * (1 - u)
+    const shut =
+      Math.max(
+        squeeze,
+        lazy * 0.95 * (1 - up - down),
+        held * 0.28 * rw.content * (1 - Math.max(up, down, cross)),
+      ) *
+      (1 - u)
     for (const l of this.lids) {
       const lp = lidPaths(l.cx, l.cy, l.rx, l.ry, l.t0 + (1 - l.t0) * shut)
       l.mask.setAttribute('d', lp.mask)

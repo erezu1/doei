@@ -44,22 +44,25 @@ import { Flip, landingOf, type FlipMood, type FlipRest } from './cat-flip'
 // the one mood the user can actually cause, which is worth more than using it
 // as punishment, and it is self-limiting — stop poking and it never appears.
 export const ROLE = {
-  idle:      { jobs: ['base'],              when: 'cards are waiting' },
-  lookDownC: { jobs: ['base'],              when: 'a card is on screen — she reads it' },
-  lookDownL: { jobs: ['drift'],             when: 'glancing across what she is reading' },
-  lookDownR: { jobs: ['drift'],             when: 'glancing across what she is reading' },
-  sleepy:    { jobs: ['base'],              when: 'nothing is due' },
-  yawn:      { jobs: ['drift'],             when: 'on the way down, just before she settles' },
-  stretch:   { jobs: ['drift'],             when: 'the end of a nap, and sometimes only most of one' },
-  lookUpL:   { jobs: ['drift', 'reaction'], when: 'an idle glance up; the first run' },
-  lookUpR:   { jobs: ['drift'],             when: 'an idle glance up' },
-  curious:   { jobs: ['drift', 'reaction'], when: 'an idle glance; a wrong answer' },
-  happy:     { jobs: ['base', 'reaction', 'poke'], when: 'a right answer; being touched kindly; after a new level' },
-  surprised: { jobs: ['reaction', 'poke'],  when: 'the first poke startles her' },
-  startled:  { jobs: ['poke'],              when: 'something wakes her — the one time she leaves the ground' },
-  celebrate: { jobs: ['reaction'],          when: 'the day is finished; a new level' },
-  sad:       { jobs: ['reaction'],          when: 'you have been away and the pile has grown' },
-  grumpy:    { jobs: ['poke'],              when: 'poked once too often' },
+  idle: { jobs: ['base'], when: 'cards are waiting' },
+  lookDownC: { jobs: ['base'], when: 'a card is on screen — she reads it' },
+  lookDownL: { jobs: ['drift'], when: 'glancing across what she is reading' },
+  lookDownR: { jobs: ['drift'], when: 'glancing across what she is reading' },
+  sleepy: { jobs: ['base'], when: 'nothing is due' },
+  yawn: { jobs: ['drift'], when: 'on the way down, just before she settles' },
+  stretch: { jobs: ['drift'], when: 'the end of a nap, and sometimes only most of one' },
+  lookUpL: { jobs: ['drift', 'reaction'], when: 'an idle glance up; the first run' },
+  lookUpR: { jobs: ['drift'], when: 'an idle glance up' },
+  curious: { jobs: ['drift', 'reaction'], when: 'an idle glance; a wrong answer' },
+  happy: {
+    jobs: ['base', 'reaction', 'poke'],
+    when: 'a right answer; being touched kindly; after a new level',
+  },
+  surprised: { jobs: ['reaction', 'poke'], when: 'the first poke startles her' },
+  startled: { jobs: ['poke'], when: 'something wakes her — the one time she leaves the ground' },
+  celebrate: { jobs: ['reaction'], when: 'the day is finished; a new level' },
+  sad: { jobs: ['reaction'], when: 'you have been away and the pile has grown' },
+  grumpy: { jobs: ['poke'], when: 'poked once too often' },
 }
 
 /**
@@ -117,7 +120,11 @@ const familyOf = (name: string) => FAMILY.find((f) => f.includes(name))
  */
 const WRONG = ['curious', 'surprised', 'lookUpL', 'lookUpR', 'sad']
 const WRONG_WEIGHT: Record<string, number> = {
-  curious: 46, surprised: 18, lookUpL: 11, lookUpR: 11, sad: 14,
+  curious: 46,
+  surprised: 18,
+  lookUpL: 11,
+  lookUpR: 11,
+  sad: 14,
 }
 
 const SULK = 5200
@@ -142,8 +149,8 @@ const COOLED = 'curious'
 // Eleven to twenty seconds gives her two or three drifts before she goes
 // under, which is what it takes for looking up to be something she does
 // rather than something she might.
-const YAWN_AFTER = [7000, 12000] as const   // ~9s
-const SLEEP_AFTER = [4000, 8000] as const   // ~15s all in
+const YAWN_AFTER = [7000, 12000] as const // ~9s
+const SLEEP_AFTER = [4000, 8000] as const // ~15s all in
 
 // --- the marks that rise off her ------------------------------------------
 // Each z and each heart is its own element with its own animation, spawned
@@ -190,14 +197,32 @@ const MARKS: Record<string, Mark> = {
   // height the marks are born. They rise away from her afterwards, so only
   // the first moment of one was ever in danger — and the first moment is
   // the one you notice, because it is the one that appears.
-  z: { d: ZED, at: [124, 10], scale: [1.1, 1.55], rise: -26, drift: 4, ms: [2400, 3000], peak: 0.7, stroke: 1.8 },
-  heart: { d: HEART, at: [124, 24], scale: [1.9, 2.4], rise: -30, drift: 2, ms: [1900, 2400], peak: 0.92, fill: '#EE8E96' },
+  z: {
+    d: ZED,
+    at: [124, 10],
+    scale: [1.1, 1.55],
+    rise: -26,
+    drift: 4,
+    ms: [2400, 3000],
+    peak: 0.7,
+    stroke: 1.8,
+  },
+  heart: {
+    d: HEART,
+    at: [124, 24],
+    scale: [1.9, 2.4],
+    rise: -30,
+    drift: 2,
+    ms: [1900, 2400],
+    peak: 0.92,
+    fill: '#EE8E96',
+  },
 }
 
 /** Which brow set a mood wants. Only two moods have any. */
 const browOf = (m: Mood) => (m.eyes === 'sad' ? 'up' : m.eyes === 'angry' ? 'down' : 'none')
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
-const pickOne = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]
+const pickOne = <T>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]
 /** A coin that comes up true with probability p. */
 const chance = (p: number) => Math.random() < p
 
@@ -266,13 +291,21 @@ export class CatRig {
 
   constructor(
     svg: SVGSVGElement,
-    { base = 'idle', drift = true, onPose, flips = false }: {
-      base?: string; drift?: boolean; onPose?: (name: string, mood: Mood) => void; flips?: boolean
+    {
+      base = 'idle',
+      drift = true,
+      onPose,
+      flips = false,
+    }: {
+      base?: string
+      drift?: boolean
+      onPose?: (name: string, mood: Mood) => void
+      flips?: boolean
     } = {},
   ) {
     this.svg = svg
     this.base = base
-    this.wanted = base          // what the screen asked for
+    this.wanted = base // what the screen asked for
     this.lastActive = performance.now()
     this.onPose = onPose
     this.holding = null
@@ -318,23 +351,52 @@ export class CatRig {
    */
   snapshot() {
     return {
-      base: this.base, wanted: this.wanted, current: this.current,
-      lastActive: this.lastActive, pokes: this.pokes, lastPoke: this.lastPoke,
-      locked: this.locked, sulkUntil: this.sulkUntil, cross: this.cross,
-      starring: this.starring, settling: this.settling, lastWrong: this.lastWrong,
-      emitting: this.emitting, emitSeq: this.emitSeq,
-      flipped: this.flip.p === 1,
+      base: this.base,
+      wanted: this.wanted,
+      current: this.current,
+      lastActive: this.lastActive,
+      pokes: this.pokes,
+      lastPoke: this.lastPoke,
+      locked: this.locked,
+      sulkUntil: this.sulkUntil,
+      cross: this.cross,
+      starring: this.starring,
+      settling: this.settling,
+      lastWrong: this.lastWrong,
+      emitting: this.emitting,
+      emitSeq: this.emitSeq,
+      flip: this.flip.reading(),
     }
   }
 
   /** Put her back exactly where the drawing before this one left her. */
   restore(was: ReturnType<CatRig['snapshot']>) {
-    const { flipped, ...rest } = was
+    const { flip, ...rest } = was
     Object.assign(this, rest, { emitting: null })
-    // Redrawn while on her back: she is simply still there, and gets up in her
-    // own time.
-    if (flipped && this.flips) {
-      this.flip.set(1)
+    // Redrawn anywhere in a roll: put the new drawing exactly where the old
+    // one was and let the move carry on from there. Only the finished state
+    // used to be carried, so a cat caught halfway over came back on her feet
+    // — a different cat in a different mood, for a moment, which is the one
+    // thing a change of coat should never look like.
+    if (this.flips && (flip.p > 0 || flip.to > 0)) {
+      this.flip.place(flip)
+      // Still going over: finish the turn, and then the same long lie-in the
+      // roll itself would have ended with.
+      if (flip.to === 1 && flip.p < 1) {
+        this.flip.over(() => {
+          if (chance(0.7)) this.flip.react('yawn')
+          this.flipHold = setTimeout(() => this.flipBack(), rand(12000, 24000))
+        })
+        return
+      }
+      // On her way back up: the rig's own way up, which knows what mood she
+      // lands in — and starts from where she already is, not from flat.
+      if (flip.to === 0) {
+        this.flipBack()
+        return
+      }
+      // Settled on her back: she is simply still there, and gets up in her
+      // own time.
       this.flipHold = setTimeout(() => this.flipBack(), rand(5000, 10000))
       return
     }
@@ -383,7 +445,8 @@ export class CatRig {
     const shape = `path('${headPath(m.squash ?? 0.85)}')`
     for (const el of this.svg.querySelectorAll<SVGElement & { style: CSSStyleDeclaration }>(
       '.cat-skull, .cat-skull-line, .cat-skull-clip, .cat-shade',
-    )) el.style.setProperty('d', shape)
+    ))
+      el.style.setProperty('d', shape)
     // The hair lags the head. She turns, and for a moment the whiskers are
     // still pointing where she was — so the swing runs against the tilt, and
     // a mood with no tilt lets them fall back to level.
@@ -508,8 +571,15 @@ export class CatRig {
    * mascot working through a backlog of reactions is answering questions you
    * have stopped asking.
    */
-  react(name: string, { ms = 1500, then, quiet = false, min = 450 }:
-    { ms?: number; then?: () => void; quiet?: boolean; min?: number } = {}) {
+  react(
+    name: string,
+    {
+      ms = 1500,
+      then,
+      quiet = false,
+      min = 450,
+    }: { ms?: number; then?: () => void; quiet?: boolean; min?: number } = {},
+  ) {
     // On her back, nothing she does on her own interrupts it — and anything the
     // app has to say gets her up first, quickly, and then gets said.
     if (this.flip.engaged) {
@@ -517,7 +587,10 @@ export class CatRig {
       // answer given while she is going over still gets its reaction.
       if (!quiet) {
         if (this.flip.turning) setTimeout(() => this.react(name, { ms, then, quiet, min }), 150)
-        else this.flipBack({ quick: true, into: name }, () => this.react(name, { ms, then, quiet, min }))
+        else
+          this.flipBack({ quick: true, into: name }, () =>
+            this.react(name, { ms, then, quiet, min }),
+          )
       }
       return
     }
@@ -594,10 +667,15 @@ export class CatRig {
         // Up still cross, and still cross once she is up: a sulk on her feet,
         // through the same grumpy the rig always uses — so it counts as a
         // temper, cools off the same way, and poking her again only extends it.
-        this.flipHold = setTimeout(() => {
-          this.flip.sulk = true
-          this.flipBack({ quick: true, into: 'grumpy' }, () => this.react('grumpy', { ms: 2600, min: 1800 }))
-        }, Flip.ms('swat') - 120)
+        this.flipHold = setTimeout(
+          () => {
+            this.flip.sulk = true
+            this.flipBack({ quick: true, into: 'grumpy' }, () =>
+              this.react('grumpy', { ms: 2600, min: 1800 }),
+            )
+          },
+          Flip.ms('swat') - 120,
+        )
       }
       return
     }
@@ -611,9 +689,15 @@ export class CatRig {
     // attention is a game and rolls over for more of it instead — which is a
     // cat, and which gives the fourth touch somewhere better to land.
     if (
-      this.pokes === 3 && this.flips && this.base === 'idle' && this.current !== 'grumpy'
-      && now > this.sulkUntil && !this.settling && chance(0.55)
-    ) return this.flipOver()
+      this.pokes === 3 &&
+      this.flips &&
+      this.base === 'idle' &&
+      this.current !== 'grumpy' &&
+      now > this.sulkUntil &&
+      !this.settling &&
+      chance(0.55)
+    )
+      return this.flipOver()
     // Once she is cross, more poking does not cheer her up — it extends it.
     // Any other reading means she goes from angry to delighted in one frame,
     // which is not a mood change, it is two unrelated drawings in sequence.
@@ -640,7 +724,8 @@ export class CatRig {
     // is the bigger one and it is given room to land before the warm half.
     const woken = this.current === 'sleepy'
     this.react(woken ? 'startled' : 'surprised', {
-      ms: woken ? 760 : 520, min: woken ? 760 : 520,
+      ms: woken ? 760 : 520,
+      min: woken ? 760 : 520,
       then: () => this.react(warm, { ms: warm === 'celebrate' ? 2100 : 1600, min: 900 }),
     })
   }
@@ -669,114 +754,134 @@ export class CatRig {
     // Nor while she is resting pleased, which she only does under a new level:
     // nodding off beneath "Level 6!" would say the opposite of the screen.
     if (this.base === 'happy') return
-    this.dozing = setTimeout(() => {
-      // On her back she is not going to sleep; the clock starts over when she is up.
-      if (this.flip.engaged) return
-      // `quiet`, so a yawn does not count as being paid attention to and reset
-      // the very clock that produced it.
-      this.settling = true
-      if (!this.holding) this.react('yawn', { ms: 2400, quiet: true, min: 0 })
-      this.dozing = setTimeout(() => {
-        this.dozing = null
-        if (this.base === 'sleepy') return
-        // Mid-reaction. Falling asleep behind it would mean opening her eyes
-        // on a face she never chose — wait, and start the clock over.
-        if (this.holdLoud) return this.#scheduleDoze()
-        this.base = 'sleepy'
-        if (!this.holding) this.pose('sleepy')
-      }, rand(...SLEEP_AFTER))
-    }, rand(...YAWN_AFTER))
+    this.dozing = setTimeout(
+      () => {
+        // On her back she is not going to sleep; the clock starts over when she is up.
+        if (this.flip.engaged) return
+        // `quiet`, so a yawn does not count as being paid attention to and reset
+        // the very clock that produced it.
+        this.settling = true
+        if (!this.holding) this.react('yawn', { ms: 2400, quiet: true, min: 0 })
+        this.dozing = setTimeout(
+          () => {
+            this.dozing = null
+            if (this.base === 'sleepy') return
+            // Mid-reaction. Falling asleep behind it would mean opening her eyes
+            // on a face she never chose — wait, and start the clock over.
+            if (this.holdLoud) return this.#scheduleDoze()
+            this.base = 'sleepy'
+            if (!this.holding) this.pose('sleepy')
+          },
+          rand(...SLEEP_AFTER),
+        )
+      },
+      rand(...YAWN_AFTER),
+    )
   }
 
   #scheduleDrift() {
-    this.drifting = setTimeout(() => {
-      // On her back she drifts in her own way: a look up the phone or down it,
-      // now and then a wriggle of pleasure at nothing.
-      if (this.flip.engaged) {
-        if (this.flip.down && !this.flip.mood) {
-          if (this.#onCard()) {
-            // Reading upside down: her eyes resettle across the card like
-            // they do the right way up, and now and then she looks up at you.
-            if (chance(0.5)) this.flip.setRest(pickOne<FlipRest>(['downL', 'downC', 'downR'].filter((r) => r !== this.flip.rest) as FlipRest[]))
-            else if (chance(0.25)) this.flip.react('up')
-          } else if (chance(0.55)) {
-            this.flip.react(pickOne<FlipMood>(['up', 'down', 'up', 'down', 'happy']))
+    this.drifting = setTimeout(
+      () => {
+        // On her back she drifts in her own way: a look up the phone or down it,
+        // now and then a wriggle of pleasure at nothing.
+        if (this.flip.engaged) {
+          if (this.flip.down && !this.flip.mood) {
+            if (this.#onCard()) {
+              // Reading upside down: her eyes resettle across the card like
+              // they do the right way up, and now and then she looks up at you.
+              if (chance(0.5))
+                this.flip.setRest(
+                  pickOne<FlipRest>(
+                    ['downL', 'downC', 'downR'].filter((r) => r !== this.flip.rest) as FlipRest[],
+                  ),
+                )
+              else if (chance(0.25)) this.flip.react('up')
+            } else if (chance(0.55)) {
+              this.flip.react(pickOne<FlipMood>(['up', 'down', 'up', 'down', 'happy']))
+            }
           }
+          return this.#scheduleDrift()
         }
-        return this.#scheduleDrift()
-      }
-      // Stuck on a card: twenty seconds and nothing, and she gets bored enough
-      // to roll over. Once per card — any answer, touch or new card resets it.
-      if (!this.holding && this.#onCard() && !this.stuckRolled
-        && performance.now() - this.lastActive > 20000 && this.#comfy(0)) {
-        this.stuckRolled = true
-        this.flipOver()
-        return this.#scheduleDrift()
-      }
-      // Now and then, when she has been left alone long enough to be at ease,
-      // she rolls over. Rare enough to be a thing you catch rather than a
-      // thing she does.
-      if (!this.holding && !this.#onCard() && this.#comfy(25000) && chance(0.08)) {
-        this.flipOver()
-        return this.#scheduleDrift()
-      }
-      // Never over a reaction: the app is saying something and she is not.
-      if (!this.holding) {
-        // Once in a while something she can hear and you cannot. It is the
-        // only movement she makes that nothing on the screen asked for, which
-        // is exactly what stops the rest of them reading as a machine
-        // answering inputs — rare enough (one drift in fourteen, so a couple
-        // of minutes apart at best) that it stays an event.
-        //
-        // Not while she is asleep: waking for no reason undoes the one mood
-        // that is meant to look like nothing is happening, and a start out of
-        // sleep is what the app's own beats are for.
-        if (this.base !== 'sleepy' && !this.settling && chance(0.07)) {
-          this.hop()
-          this.react('startled', { ms: 900, quiet: true, min: 0 })
-        } else {
-          const family = familyOf(this.base)
-          // Half the time she resettles somewhere else in the same family and
-          // stays there; the rest of the time she pays a visit and returns.
-          // Only resettling makes her restless, only visiting makes her a
-          // metronome pointed at one spot.
-          if (family && Math.random() < 0.5) {
-            const to = pickOne(family.filter((f) => f !== this.base))
-            this.base = to
-            this.pose(to)
+        // Stuck on a card: twenty seconds and nothing, and she gets bored enough
+        // to roll over. Once per card — any answer, touch or new card resets it.
+        if (
+          !this.holding &&
+          this.#onCard() &&
+          !this.stuckRolled &&
+          performance.now() - this.lastActive > 20000 &&
+          this.#comfy(0)
+        ) {
+          this.stuckRolled = true
+          this.flipOver()
+          return this.#scheduleDrift()
+        }
+        // Now and then, when she has been left alone long enough to be at ease,
+        // she rolls over. Rare enough to be a thing you catch rather than a
+        // thing she does.
+        if (!this.holding && !this.#onCard() && this.#comfy(25000) && chance(0.08)) {
+          this.flipOver()
+          return this.#scheduleDrift()
+        }
+        // Never over a reaction: the app is saying something and she is not.
+        if (!this.holding) {
+          // Once in a while something she can hear and you cannot. It is the
+          // only movement she makes that nothing on the screen asked for, which
+          // is exactly what stops the rest of them reading as a machine
+          // answering inputs — rare enough (one drift in fourteen, so a couple
+          // of minutes apart at best) that it stays an event.
+          //
+          // Not while she is asleep: waking for no reason undoes the one mood
+          // that is meant to look like nothing is happening, and a start out of
+          // sleep is what the app's own beats are for.
+          if (this.base !== 'sleepy' && !this.settling && chance(0.07)) {
+            this.hop()
+            this.react('startled', { ms: 900, quiet: true, min: 0 })
           } else {
-            const options = DRIFT[this.base]
-            if (options && chance(DRIFT_CHANCE[this.base] ?? 1)) {
-              const to = pickOne(options)
-              // A stretch is mostly how a nap ends. Not always — a cat who
-              // stretches, thinks better of it and goes back under is the
-              // most cat thing in here — but a stretch that never once led
-              // anywhere made the whole gesture punctuation.
-              const up = to === 'stretch' && chance(0.7)
-              // Looking up is not a glance. Something up there has her
-              // attention and she gives it a while — and about half the time
-              // she decides it is actually over the other way, which is the
-              // difference between watching something and having noticed it.
-              const gazing = to === 'lookUpL' || to === 'lookUpR'
-              const other = to === 'lookUpL' ? 'lookUpR' : 'lookUpL'
-              this.react(to, {
-                ms: gazing ? rand(4500, 9000) : rand(1400, 2800),
-                quiet: true, min: 0,
-                then: up
-                  ? () => this.#rouse()
-                  : gazing && chance(0.45)
-                    ? () => this.react(other, { ms: rand(3000, 6500), quiet: true, min: 0 })
-                    : undefined,
-              })
+            const family = familyOf(this.base)
+            // Half the time she resettles somewhere else in the same family and
+            // stays there; the rest of the time she pays a visit and returns.
+            // Only resettling makes her restless, only visiting makes her a
+            // metronome pointed at one spot.
+            if (family && Math.random() < 0.5) {
+              const to = pickOne(family.filter((f) => f !== this.base))
+              this.base = to
+              this.pose(to)
+            } else {
+              const options = DRIFT[this.base]
+              if (options && chance(DRIFT_CHANCE[this.base] ?? 1)) {
+                const to = pickOne(options)
+                // A stretch is mostly how a nap ends. Not always — a cat who
+                // stretches, thinks better of it and goes back under is the
+                // most cat thing in here — but a stretch that never once led
+                // anywhere made the whole gesture punctuation.
+                const up = to === 'stretch' && chance(0.7)
+                // Looking up is not a glance. Something up there has her
+                // attention and she gives it a while — and about half the time
+                // she decides it is actually over the other way, which is the
+                // difference between watching something and having noticed it.
+                const gazing = to === 'lookUpL' || to === 'lookUpR'
+                const other = to === 'lookUpL' ? 'lookUpR' : 'lookUpL'
+                this.react(to, {
+                  ms: gazing ? rand(4500, 9000) : rand(1400, 2800),
+                  quiet: true,
+                  min: 0,
+                  then: up
+                    ? () => this.#rouse()
+                    : gazing && chance(0.45)
+                      ? () => this.react(other, { ms: rand(3000, 6500), quiet: true, min: 0 })
+                      : undefined,
+                })
+              }
             }
           }
         }
-      }
-      this.#scheduleDrift()
-      // Faster than the wind-down, or she never drifts at all before the
-      // wind-down takes her: the tick has to fit inside the waking window
-      // two or three times over.
-    }, rand(4500, 9000))
+        this.#scheduleDrift()
+        // Faster than the wind-down, or she never drifts at all before the
+        // wind-down takes her: the tick has to fit inside the waking window
+        // two or three times over.
+      },
+      rand(4500, 9000),
+    )
   }
 
   /**
@@ -787,15 +892,24 @@ export class CatRig {
   #comfy(quietFor: number) {
     const now = performance.now()
     // At rest is idle at home, and reading on the card screen.
-    const resting = (m: string) => (this.#onCard() ? familyOf(m) === familyOf('lookDownC') : m === 'idle')
-    return this.flips && !this.flip.engaged
-      && resting(this.base) && resting(this.current)
-      && !this.settling && now > this.sulkUntil && this.cross === 0
-      && now - this.lastPoke >= quietFor
+    const resting = (m: string) =>
+      this.#onCard() ? familyOf(m) === familyOf('lookDownC') : m === 'idle'
+    return (
+      this.flips &&
+      !this.flip.engaged &&
+      resting(this.base) &&
+      resting(this.current) &&
+      !this.settling &&
+      now > this.sulkUntil &&
+      this.cross === 0 &&
+      now - this.lastPoke >= quietFor
+    )
   }
 
   /** Whether she is on the card screen — the screen asked her to read. */
-  #onCard() { return familyOf(this.wanted) === familyOf('lookDownC') }
+  #onCard() {
+    return familyOf(this.wanted) === familyOf('lookDownC')
+  }
 
   /** Over onto her back. Usually she yawns as she lands; she stays a while, then gets up. */
   flipOver() {
@@ -810,10 +924,14 @@ export class CatRig {
     // not stay long — the card is the point. At home she is content, and in
     // no hurry.
     this.flip.setRest(card ? pickOne<FlipRest>(['downL', 'downC', 'downR']) : 'content')
-    const go = () => this.flip.over(() => {
-      if (chance(0.7)) this.flip.react('yawn')
-      this.flipHold = setTimeout(() => this.flipBack(), card ? rand(4000, 7000) : rand(12000, 24000))
-    })
+    const go = () =>
+      this.flip.over(() => {
+        if (chance(0.7)) this.flip.react('yawn')
+        this.flipHold = setTimeout(
+          () => this.flipBack(),
+          card ? rand(4000, 7000) : rand(12000, 24000),
+        )
+      })
     // The turn is drawn from her resting pose. Asked mid-reaction — the third
     // poke lands on a surprised or pleased face — she settles into it first,
     // or the turn starts from a head shape and a tilt that are not hers.
@@ -831,17 +949,26 @@ export class CatRig {
     const d = this.flip.dominant()
     const left = (n: FlipMood) => Math.max(900, this.flip.remaining(n) + 500)
     switch (d) {
-      case 'happy': return { name: 'happy', oneShot: true, ms: left('happy') }
-      case 'yawn': return { name: 'yawn', oneShot: true, ms: left('yawn') }
-      case 'up': return { name: chance(0.5) ? 'lookUpL' : 'lookUpR', oneShot: true, ms: left('up') + 600 }
-      case 'down': return this.#onCard()
-        ? { name: 'lookDownC', oneShot: false, ms: 0 }
-        : { name: 'lookDownC', oneShot: true, ms: left('down') }
-      case 'swat': return { name: 'grumpy', oneShot: true, ms: 2600 }
-      case 'downL': return { name: 'lookDownL', oneShot: false, ms: 0 }
-      case 'downC': return { name: 'lookDownC', oneShot: false, ms: 0 }
-      case 'downR': return { name: 'lookDownR', oneShot: false, ms: 0 }
-      default: return { name: this.base, oneShot: false, ms: 0 }
+      case 'happy':
+        return { name: 'happy', oneShot: true, ms: left('happy') }
+      case 'yawn':
+        return { name: 'yawn', oneShot: true, ms: left('yawn') }
+      case 'up':
+        return { name: chance(0.5) ? 'lookUpL' : 'lookUpR', oneShot: true, ms: left('up') + 600 }
+      case 'down':
+        return this.#onCard()
+          ? { name: 'lookDownC', oneShot: false, ms: 0 }
+          : { name: 'lookDownC', oneShot: true, ms: left('down') }
+      case 'swat':
+        return { name: 'grumpy', oneShot: true, ms: 2600 }
+      case 'downL':
+        return { name: 'lookDownL', oneShot: false, ms: 0 }
+      case 'downC':
+        return { name: 'lookDownC', oneShot: false, ms: 0 }
+      case 'downR':
+        return { name: 'lookDownR', oneShot: false, ms: 0 }
+      default:
+        return { name: this.base, oneShot: false, ms: 0 }
     }
   }
 
@@ -858,18 +985,22 @@ export class CatRig {
     const mood = MOODS[l.name] ?? MOODS[this.base]
     // A rest lands as her base, when it is a direction of what the screen
     // asked for — reading left instead of reading middle is still reading.
-    if (!l.oneShot && familyOf(l.name) && familyOf(l.name) === familyOf(this.wanted)) this.base = l.name
-    this.flip.back({
-      quick,
-      land: landingOf(mood),
-      shadow: () => this.pose(l.name, { during: true }),
-    }, () => {
-      this.flipTaps = 0
-      if (then) then()
-      else if (l.oneShot) this.react(l.name, { ms: l.ms, min: Math.min(900, l.ms), quiet: true })
-      else this.pose(this.base)
-      this.#scheduleDoze()
-    })
+    if (!l.oneShot && familyOf(l.name) && familyOf(l.name) === familyOf(this.wanted))
+      this.base = l.name
+    this.flip.back(
+      {
+        quick,
+        land: landingOf(mood),
+        shadow: () => this.pose(l.name, { during: true }),
+      },
+      () => {
+        this.flipTaps = 0
+        if (then) then()
+        else if (l.oneShot) this.react(l.name, { ms: l.ms, min: Math.min(900, l.ms), quiet: true })
+        else this.pose(this.base)
+        this.#scheduleDoze()
+      },
+    )
   }
 
   /**
@@ -881,7 +1012,11 @@ export class CatRig {
   answered(right: boolean) {
     this.correctRun = right ? this.correctRun + 1 : 0
     if (right && this.flip.engaged) {
-      if (this.flip.turning) { this.correctRun -= 1; setTimeout(() => this.answered(true), 150); return }
+      if (this.flip.turning) {
+        this.correctRun -= 1
+        setTimeout(() => this.answered(true), 150)
+        return
+      }
       {
         this.#stir()
         this.flip.react('happy')
@@ -911,12 +1046,18 @@ export class CatRig {
    */
   huff() {
     const pulse = (prop: string, ms: number) =>
-      this.svg.animate([
-        { [prop]: 0 },
-        { [prop]: 1, offset: 0.13 }, { [prop]: 0.12, offset: 0.3 },
-        { [prop]: 0.95, offset: 0.46 }, { [prop]: 0.08, offset: 0.63 },
-        { [prop]: 0.72, offset: 0.79 }, { [prop]: 0 },
-      ], { duration: ms, easing: 'ease-out', fill: 'none' })
+      this.svg.animate(
+        [
+          { [prop]: 0 },
+          { [prop]: 1, offset: 0.13 },
+          { [prop]: 0.12, offset: 0.3 },
+          { [prop]: 0.95, offset: 0.46 },
+          { [prop]: 0.08, offset: 0.63 },
+          { [prop]: 0.72, offset: 0.79 },
+          { [prop]: 0 },
+        ],
+        { duration: ms, easing: 'ease-out', fill: 'none' },
+      )
 
     // The nose goes every time — it is the part that says "again?" and the
     // huff would not be a huff without it.
@@ -1039,10 +1180,14 @@ export class CatRig {
     const frames = (prop: string, gain: number) =>
       shape.map((k) => ({ [prop]: k.v * gain, offset: k.at, easing: k.ease })) as Keyframe[]
     this.svg.animate(frames('--hop', head.gain), {
-      duration, easing: 'linear', delay: head.delay,
+      duration,
+      easing: 'linear',
+      delay: head.delay,
     })
     this.svg.animate(frames('--hop-paw', paw.gain), {
-      duration, easing: 'linear', delay: paw.delay,
+      duration,
+      easing: 'linear',
+      delay: paw.delay,
     })
   }
 
@@ -1121,7 +1266,11 @@ export class CatRig {
     if (!host) return
     // From just above the crown, out to the upper left, straight up, and out
     // to the upper right.
-    const flight: [number, number][] = [[-40, -18], [0, -32], [40, -18]]
+    const flight: [number, number][] = [
+      [-40, -18],
+      [0, -32],
+      [40, -18],
+    ]
     flight.forEach(([dx, dy], i) => {
       const g = document.createElementNS(SVG_NS, 'g')
       const path = document.createElementNS(SVG_NS, 'path')
@@ -1134,23 +1283,33 @@ export class CatRig {
 
       // The star is ten units across and drawn from its own corner, so half
       // of it comes off both numbers to put its centre where it is aimed.
-      const x0 = 60 - 5, y0 = 2 - 5
+      const x0 = 60 - 5,
+        y0 = 2 - 5
       // Out quickly, then slower, but never stopped. Something thrown that
       // comes to a dead halt in mid-air is the one thing that cannot happen,
       // and holding still for most of the shot read as exactly that. It keeps
       // going the whole way — a fifth of the speed by the end, and turning —
       // which is also the stretch of time the eye needs to arrive at it.
       const [jx, jy] = [rand(-5, 5), rand(-4, 4)]
-      const tx = x0 + dx + jx, ty = y0 + dy + jy
+      const tx = x0 + dx + jx,
+        ty = y0 + dy + jy
       const spin = rand(150, 260) * (dx < 0 ? -1 : 1)
       const at = (px: number, py: number, sc: number, rot: number) =>
         `translate(${px.toFixed(2)}px, ${py.toFixed(2)}px) rotate(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`
       const anim = g.animate(
         [
           { opacity: 0, transform: at(x0, y0, 0.25, 0) },
-          { opacity: 1, offset: 0.14, transform: at(x0 + dx * 0.62, y0 + dy * 0.62, 1.95, spin * 0.12) },
+          {
+            opacity: 1,
+            offset: 0.14,
+            transform: at(x0 + dx * 0.62, y0 + dy * 0.62, 1.95, spin * 0.12),
+          },
           { opacity: 1, offset: 0.32, transform: at(tx, ty, 1.8, spin * 0.28) },
-          { opacity: 1, offset: 0.66, transform: at(tx + dx * 0.2, ty + dy * 0.22 - 2, 1.62, spin * 0.62) },
+          {
+            opacity: 1,
+            offset: 0.66,
+            transform: at(tx + dx * 0.2, ty + dy * 0.22 - 2, 1.62, spin * 0.62),
+          },
           { opacity: 0, transform: at(tx + dx * 0.38, ty + dy * 0.42 - 5, 1.15, spin) },
         ],
         {
@@ -1190,11 +1349,20 @@ export class CatRig {
  * expression, so the mapping can change without touching a screen.
  */
 export type SceneName =
-  | 'waiting' | 'reading' | 'nothingDue' | 'correct' | 'wrong'
-  | 'finished' | 'levelUp' | 'greeting'
+  | 'waiting'
+  | 'reading'
+  | 'nothingDue'
+  | 'correct'
+  | 'wrong'
+  | 'finished'
+  | 'levelUp'
+  | 'greeting'
   // How she takes the week when you walk in. One of these fires once per
   // visit, and only ever on arrival.
-  | 'arriveProud' | 'arriveGlad' | 'arriveBehind' | 'arriveAway'
+  | 'arriveProud'
+  | 'arriveGlad'
+  | 'arriveBehind'
+  | 'arriveAway'
 
 export const SCENE: Record<SceneName, (r: CatRig) => void> = {
   waiting: (r: CatRig) => r.setBase('idle'),
@@ -1227,7 +1395,8 @@ export const SCENE: Record<SceneName, (r: CatRig) => void> = {
       // Longer than any other reaction, because three bursts have to land
       // inside it — stars still in the air after she has gone back to idle
       // belong to nothing.
-      ms: 4200, min: 1600,
+      ms: 4200,
+      min: 1600,
       then: () => {
         r.starring = false
         r.pose(r.base)
@@ -1288,15 +1457,16 @@ export const SCENE: Record<SceneName, (r: CatRig) => void> = {
 // with whatever pose the mood has set instead of overwriting it.
 // ---------------------------------------------------------------------------
 
-
-
 export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
   const timers = new Set<ReturnType<typeof setTimeout>>()
   let stopped = false
 
   const later = (fn: () => void, ms: number) => {
-    const t = setTimeout(() => { timers.delete(t); fn() }, ms)
+    const t = setTimeout(() => {
+      timers.delete(t)
+      fn()
+    }, ms)
     timers.add(t)
     return t
   }
@@ -1321,7 +1491,8 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   // are recomputed together from one call. Anything that derives them
   // separately drifts apart the moment the timing is not identical.
   const lidParts = [...svg.querySelectorAll<SVGElement>('.cat-lidmask, .cat-lash')]
-  const SHUT = 150, OPEN = 210
+  const SHUT = 150,
+    OPEN = 210
 
   function setLid(t: number) {
     // Three things stack, in order of how long they last: the eye variant's
@@ -1344,8 +1515,8 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   // function because the face has to sample the same curve, just later.
   const shape = (e: number) => {
     if (e <= 0) return 0
-    if (e < SHUT) return (e / SHUT) ** 1.7               // shut: accelerating
-    if (e < SHUT + OPEN) return (1 - (e - SHUT) / OPEN) ** 2   // open: easing out
+    if (e < SHUT) return (e / SHUT) ** 1.7 // shut: accelerating
+    if (e < SHUT + OPEN) return (1 - (e - SHUT) / OPEN) ** 2 // open: easing out
     return 0
   }
 
@@ -1360,11 +1531,19 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
     if (svg.dataset.flip) return void later(blink, rand(2800, 7400))
     const t0 = performance.now()
     const step = (now: number) => {
-      if (stopped) { setLid(0); svg.style.setProperty('--face-dip', '0'); return }
+      if (stopped) {
+        setLid(0)
+        svg.style.setProperty('--face-dip', '0')
+        return
+      }
       const e = now - t0
       setLid(shape(e))
       svg.style.setProperty('--face-dip', shape(e - FACE_LAG).toFixed(3))
-      if (e >= SHUT + OPEN + FACE_LAG) { setLid(0); svg.style.setProperty('--face-dip', '0'); return }
+      if (e >= SHUT + OPEN + FACE_LAG) {
+        setLid(0)
+        svg.style.setProperty('--face-dip', '0')
+        return
+      }
       requestAnimationFrame(step)
     }
     requestAnimationFrame(step)
@@ -1381,12 +1560,16 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
     if (stopped) return
     const v = chance(0.5) ? '--twitch-l' : '--twitch-r'
     const away = v === '--twitch-l' ? -9 : 9
-    play([
-      { [v]: '0deg' },
-      { [v]: `${away}deg`, offset: 0.28 },
-      { [v]: `${-away * 0.22}deg`, offset: 0.62 },
-      { [v]: '0deg' },
-    ], 340, 'ease-out')
+    play(
+      [
+        { [v]: '0deg' },
+        { [v]: `${away}deg`, offset: 0.28 },
+        { [v]: `${-away * 0.22}deg`, offset: 0.62 },
+        { [v]: '0deg' },
+      ],
+      340,
+      'ease-out',
+    )
     later(flick, rand(5000, 13000))
   }
 
@@ -1397,15 +1580,20 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
     if (stopped) return
     // And her gaze, which it turns into her frame.
     // And while she is in the middle of a trick, whose eyes are on the thing.
-    if (svg.dataset.flip || svg.dataset.trick !== undefined) return void later(glance, rand(4200, 11000))
+    if (svg.dataset.flip || svg.dataset.trick !== undefined)
+      return void later(glance, rand(4200, 11000))
     const x = rand(-2.6, 2.6).toFixed(2)
     const y = rand(-1.4, 0.9).toFixed(2)
-    play([
-      { '--gaze-x': '0px', '--gaze-y': '0px' },
-      { '--gaze-x': `${x}px`, '--gaze-y': `${y}px`, offset: 0.18 },
-      { '--gaze-x': `${x}px`, '--gaze-y': `${y}px`, offset: 0.72 },
-      { '--gaze-x': '0px', '--gaze-y': '0px' },
-    ], rand(1400, 2200), 'ease-in-out')
+    play(
+      [
+        { '--gaze-x': '0px', '--gaze-y': '0px' },
+        { '--gaze-x': `${x}px`, '--gaze-y': `${y}px`, offset: 0.18 },
+        { '--gaze-x': `${x}px`, '--gaze-y': `${y}px`, offset: 0.72 },
+        { '--gaze-x': '0px', '--gaze-y': '0px' },
+      ],
+      rand(1400, 2200),
+      'ease-in-out',
+    )
     later(glance, rand(4200, 11000))
   }
 
@@ -1418,13 +1606,18 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   }
 
   function sniffOnce() {
-    play([
-      { '--whisk': 0 }, { '--whisk': 0.45, offset: 0.35 }, { '--whisk': 0 },
-    ], 480, 'ease-out')
-    play([
-      { '--sniff': 0 }, { '--sniff': 1, offset: 0.3 },
-      { '--sniff': 0, offset: 0.55 }, { '--sniff': 0.6, offset: 0.75 }, { '--sniff': 0 },
-    ], 420, 'ease-out')
+    play([{ '--whisk': 0 }, { '--whisk': 0.45, offset: 0.35 }, { '--whisk': 0 }], 480, 'ease-out')
+    play(
+      [
+        { '--sniff': 0 },
+        { '--sniff': 1, offset: 0.3 },
+        { '--sniff': 0, offset: 0.55 },
+        { '--sniff': 0.6, offset: 0.75 },
+        { '--sniff': 0 },
+      ],
+      420,
+      'ease-out',
+    )
   }
 
   svg.addEventListener('cat:sniff', () => !stopped && sniffOnce())
@@ -1439,12 +1632,16 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   function whisk() {
     if (stopped) return
     const d = chance(0.5) ? 1 : -1
-    play([
-      { '--whisk': 0 },
-      { '--whisk': d, offset: 0.22 },
-      { '--whisk': d * -0.28, offset: 0.55 },
-      { '--whisk': 0 },
-    ], rand(420, 620), 'ease-out')
+    play(
+      [
+        { '--whisk': 0 },
+        { '--whisk': d, offset: 0.22 },
+        { '--whisk': d * -0.28, offset: 0.55 },
+        { '--whisk': 0 },
+      ],
+      rand(420, 620),
+      'ease-out',
+    )
     later(whisk, rand(5200, 14000))
   }
 
@@ -1477,5 +1674,8 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   reduced.addEventListener('change', () => (reduced.matches ? stop() : start()))
 
   start()
-  return () => { stop(); document.removeEventListener('visibilitychange', onVisibility) }
+  return () => {
+    stop()
+    document.removeEventListener('visibilitychange', onVisibility)
+  }
 }

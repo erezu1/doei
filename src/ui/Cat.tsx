@@ -52,7 +52,17 @@ function carryPhase(from: Element, to: Element) {
   for (let i = 0; i < Math.min(ax.length, bx.length); i++) carryPhase(ax[i], bx[i])
 }
 
-export function Cat({ coat, scene, beat, trick, rim = false, className = '', size = 96, label, flips = false }: Props) {
+export function Cat({
+  coat,
+  scene,
+  beat,
+  trick,
+  rim = false,
+  className = '',
+  size = 96,
+  label,
+  flips = false,
+}: Props) {
   const host = useRef<HTMLDivElement>(null)
   const rig = useRef<CatRig | null>(null)
   /**
@@ -102,9 +112,14 @@ export function Cat({ coat, scene, beat, trick, rim = false, className = '', siz
       fade.finished.then(() => outgoing.remove()).catch(() => outgoing.remove())
       // `backwards`, so she holds at nought through the delay instead of
       // sitting there at full strength waiting for her turn.
+      //
+      // She starts coming in forty milliseconds before the old one is quite
+      // gone. Waiting for the gap left a frame with no cat in it at all,
+      // which is the blink; overlapping only where both are under a fifth of
+      // a strength is not the double image that crossing properly was.
       svg.animate([{ opacity: 0 }, { opacity: 1 }], {
         duration: 190,
-        delay: 150,
+        delay: 110,
         easing: 'ease-in',
         fill: 'backwards',
       })
