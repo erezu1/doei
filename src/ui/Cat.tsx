@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { catSvg, type CoatId } from '../core/cat'
+import { catSvg, paint, type CoatId } from '../core/cat'
 import { CatRig, idle, SCENE, type Beats, type SceneName } from '../core/cat-rig'
 import { playTrick, stopTrick, type Trick } from '../core/cat-tricks'
 
@@ -36,22 +36,6 @@ interface Props {
   flips?: boolean
 }
 
-/**
- * Copy where every running animation had got to, element for element.
- *
- * The two trees are built by the same generator from the same arguments, so
- * they have the same shape and walking them together lines each animation up
- * with its own counterpart.
- */
-function carryPhase(from: Element, to: Element) {
-  const a = from.getAnimations()
-  const b = to.getAnimations()
-  for (let i = 0; i < Math.min(a.length, b.length); i++) b[i].currentTime = a[i].currentTime
-  const ax = [...from.children]
-  const bx = [...to.children]
-  for (let i = 0; i < Math.min(ax.length, bx.length); i++) carryPhase(ax[i], bx[i])
-}
-
 export function Cat({
   coat,
   scene,
@@ -68,38 +52,32 @@ export function Cat({
   /**
    * What she was doing when the last drawing was torn down.
    *
+   * Only across a screen, now that a coat is paint: she is on the home screen
+   * and on the card screen, and walking between them is still a new element.
    * React runs the old effect's cleanup before the new effect's body, so the
    * previous rig is already gone by the time the new one exists — the state
    * has to be caught on the way out and handed over on the way in.
    */
   const carried = useRef<ReturnType<CatRig['snapshot']> | null>(null)
   /**
-   * And how long each of her idle beats still had to wait. A new drawing
-   * draws a fresh stagger otherwise, and its first blink or glance lands
-   * while she is still fading in — a cat that moves for no reason, which is
-   * the one thing a change of coat should not look like.
+   * And how long each of her idle beats still had to wait, for the same
+   * reason: a drawing that starts its own stagger blinks and glances at times
+   * the cat you were watching had not chosen.
    */
   const beats = useRef<Beats | null>(null)
 
-  // Rebuilt only when the drawing itself changes — a different cat, or a
-  // different ramp to stand on. Never for a mood.
+  // Built once, for the size she is drawn at, and never again: the coat and
+  // the rim are custom properties on the element, so changing either is
+  // `paint` rather than a new cat.
   //
-  // Changing coat fades out and then in, rather than cutting or crossing.
-  //
-  // Crossing was the obvious thing and it was wrong: two cats at half opacity
-  // on top of each other show through one another, and every line that does
-  // not line up between two coats — an ear patch, a goatee, a nose — is
-  // briefly visible twice. One out, then one in, and only ever one cat on
-  // screen.
-  //
-  // The old one goes out of flow rather than the new one, because the new one
-  // has to hold the layout open: absolutely positioning the incoming cat
-  // would collapse the row and everything below it would jump.
+  // It used to be a new cat, faded out and in, and everything else in this
+  // file was the consequence — her pose, her idle clock and a roll in mid-air
+  // caught on the way out and handed back on the way in. The fade is gone
+  // with it: there is nothing to fade BETWEEN, only an element whose colours
+  // changed.
   useEffect(() => {
     const box = host.current
     if (!box) return
-    const outgoing = box.firstElementChild as SVGElement | null
-
     const holder = document.createElement('div')
     holder.innerHTML = catSvg({ coat, mood: 'idle', rim, size, rig: true })
     const svg = holder.querySelector('svg')
@@ -109,39 +87,10 @@ export function Cat({
     svg.setAttribute('height', String(size))
     box.prepend(svg)
 
-    if (outgoing) {
-      outgoing.style.cssText = 'position:absolute;inset:0;margin:auto;pointer-events:none'
-      const fade = outgoing.animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: 150,
-        easing: 'ease-out',
-        fill: 'forwards',
-      })
-      fade.finished.then(() => outgoing.remove()).catch(() => outgoing.remove())
-      // `backwards`, so she holds at nought through the delay instead of
-      // sitting there at full strength waiting for her turn.
-      //
-      // She starts coming in forty milliseconds before the old one is quite
-      // gone. Waiting for the gap left a frame with no cat in it at all,
-      // which is the blink; overlapping only where both are under a fifth of
-      // a strength is not the double image that crossing properly was.
-      svg.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 190,
-        delay: 110,
-        easing: 'ease-in',
-        fill: 'backwards',
-      })
-    }
-
     const r = new CatRig(svg, { flips })
     rig.current = r
     if (carried.current) r.restore(carried.current)
     const loop = idle(svg, { resume: beats.current ?? undefined })
-    // And the loops themselves, AFTER the idle loop has started them — there
-    // is nothing to line up with until it has. The breath and the knead begin
-    // at zero on a new element, so without this the two cats breathe out of
-    // step in front of each other, which is the one moment both are on screen
-    // and the only moment it could show.
-    if (outgoing) carryPhase(outgoing, svg)
     return () => {
       // Mid-trick, the trick goes with her: its props are drawn in her.
       stopTrick(r)
@@ -152,7 +101,14 @@ export function Cat({
       rig.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coat, rim, size])
+  }, [size])
+
+  // Her coat, and the rim of light a dark page needs behind her. Both are
+  // paint on an element that stays exactly as it was.
+  useEffect(() => {
+    const svg = host.current?.querySelector('svg')
+    if (svg) paint(svg, coat, { rim })
+  }, [coat, rim])
 
   useEffect(() => {
     if (rig.current) SCENE[scene](rig.current)

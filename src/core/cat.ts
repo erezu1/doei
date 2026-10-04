@@ -903,19 +903,81 @@ const EAR_TURN: Record<string, number> = { perk: -6, flat: -15 }
 
 let uid = 0
 
+/** The tuxedo's chin spot, which every cat now carries and only she shows. */
+const CHIN = { cx: 60, cy: FLOOR, rx: 11, ry: 9 }
+
+/**
+ * A coat as a set of custom properties: every colour she wears, and which of
+ * the markings they all carry this one shows.
+ *
+ * Opacity rather than display for the markings, because it is one property to
+ * set and because it could be transitioned — a coat could fade into another
+ * rather than cut, which nothing about the drawing now prevents.
+ */
+export function coatVars(coat: string, rim = false): Record<string, string> {
+  const base = COATS[coat] ?? COATS.calico
+  const c = rim && base.lineDark ? { ...base, line: base.lineDark } : base
+  const patch = (d: string) => c.patches?.find((p) => p.d === d)
+  const left = patch(P.left), right = patch(P.right), mask = patch(P.mask)
+  return {
+    '--cat-base': c.base, '--cat-muzzle': c.muzzle, '--cat-ear': c.ear,
+    '--cat-ear-fur': c.earFur ?? c.base, '--cat-iris': c.iris,
+    '--cat-pupil': c.pupil, '--cat-line': c.line, '--cat-paw': c.paw ?? c.base,
+    // A dark cat's muzzle and the shadow under her both have to be stronger
+    // on her than on a pale coat, or they read as dirt rather than as form.
+    '--cat-muzzle-a': String(c.muzzleAlpha ?? (c.dark ? 0.42 : 0.65)),
+    '--cat-contact-a': c.dark ? '.34' : '.26',
+    '--cat-rim': rim ? '.15' : '0',
+    '--mark-left': left?.fill ?? '#0000', '--mark-left-on': left ? '1' : '0',
+    '--mark-right': right?.fill ?? '#0000', '--mark-right-on': right ? '1' : '0',
+    // The siamese's points have no edge: hers is drawn through a blur and
+    // held back from full strength.
+    '--mark-mask': mask?.fill ?? '#0000', '--mark-mask-on': mask ? '.8' : '0',
+    '--mark-stripe': c.stripes?.fill ?? '#0000', '--mark-stripe-on': c.stripes ? '1' : '0',
+    '--mark-chin': c.chin?.fill ?? '#0000', '--mark-chin-on': c.chin ? '1' : '0',
+  }
+}
+
+/**
+ * Change her coat, on the cat already on screen.
+ *
+ * The whole of a coat change: she keeps her pose, her breath, her idle clock,
+ * whatever she was in the middle of, and the element she has always been.
+ */
+export function paint(svg: SVGElement, coat: string, { rim = false } = {}) {
+  for (const [k, v] of Object.entries(coatVars(coat, rim))) svg.style.setProperty(k, v)
+  // The one colour that is not a fill: the z's and the hearts are spawned
+  // later and read their ink from here.
+  const c = COATS[coat] ?? COATS.calico
+  svg.querySelector('.cat-emit')?.setAttribute('data-ink', rim ? '#ffffff' : c.line)
+}
+
 export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = true, size = 160, rig = false } = {}) {
   const base = COATS[coat]
   // Resolved once, here, rather than at each of the twenty places that draw a
   // line. Everything downstream — the silhouette, the whiskers, the mouth, the
   // lash, the toes, the z's — reads c.line and gets the right one.
   const c = rim && base.lineDark ? { ...base, line: base.lineDark } : base
+  // Every colour she wears is a custom property, and `V` is the palette as the
+  // DRAWING refers to it rather than as it resolves. One consequence: the
+  // markup is the same for all seven cats — every coat's markings are in it,
+  // the ones this coat does not wear at nought opacity — so a change of coat
+  // is `paint`, a dozen properties on an element that is never replaced.
+  //
+  // Which is the point of it. She used to be regenerated, and a new drawing
+  // meant a new rig: her pose, her idle clock and a roll in mid-air all had to
+  // be caught on the way out and handed back on the way in, and each of those
+  // was a bug before it was a handover. Nothing is torn down now.
+  const V = { ...c, base: 'var(--cat-base)', muzzle: 'var(--cat-muzzle)',
+    ear: 'var(--cat-ear)', iris: 'var(--cat-iris)', pupil: 'var(--cat-pupil)',
+    line: 'var(--cat-line)', paw: 'var(--cat-paw)' }
   const m = MOODS[mood]
   const id = `c${uid++}`
   // The variant's own lid, then the mood's bias on top of what is still open —
   // the same stacking the blink uses, so a still frame matches the rig.
   const lid0 = m.arc ?? LID_OPEN
-  const [eyeL, eyeR, brows] = EYES[m.eyes](c, id, m.gaze ?? [0, 0], lid0 + (m.lid ?? 0) * (1 - lid0))
-  const pawFur = `fill="${c.paw ?? c.base}"`
+  const [eyeL, eyeR, brows] = EYES[m.eyes](V, id, m.gaze ?? [0, 0], lid0 + (m.lid ?? 0) * (1 - lid0))
+  const pawFur = `fill="var(--cat-paw)"`
   const turn = m.ear ? (EAR_TURN[m.ear] ?? 0) : 0
   // In rig mode the pose is not baked in. Every channel reads a custom
   // property instead, so one element can hold any mood and two moods can be
@@ -943,7 +1005,7 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   // simultaneously.
   const off = (shown: boolean) => (shown ? '' : ' display="none"')
   const eyeSets = rig ? Object.entries(EYES).map(([name, fn]) => {
-    const [l, r, br] = fn(c, id + name, [0, 0], VARIANT_LID[name] ?? LID_OPEN)
+    const [l, r, br] = fn(V, id + name, [0, 0], VARIANT_LID[name] ?? LID_OPEN)
     return { name, l, r, br, shown: name === m.eyes }
   }) : []
   const side = (k: 'l' | 'r') => eyeSets.map((v) =>
@@ -951,12 +1013,12 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   const browSets = rig
     ? ['none', 'up', 'down'].map((n) =>
         `<g data-brow="${n}"${off((brows ? (brows.includes('q-5.5') ? 'up' : 'down') : 'none') === n)}>${
-          n === 'none' ? '' : brow(c, n as 'up' | 'down')}</g>`).join('')
+          n === 'none' ? '' : brow(V, n as 'up' | 'down')}</g>`).join('')
     : brows
   const mouthSets = rig
     ? Object.entries(MOUTHS).map(([n, fn]) =>
-        `<g data-mouth="${n}"${off(n === m.mouth)}>${fn(c)}</g>`).join('')
-    : MOUTHS[m.mouth](c)
+        `<g data-mouth="${n}"${off(n === m.mouth)}>${fn(V)}</g>`).join('')
+    : MOUTHS[m.mouth](V)
   // How far off the carpet this mood holds its head. Anything that looks up
   // or reacts lifts; anything drowsy presses back down.
   const q = m.squash ?? 0.85
@@ -976,11 +1038,14 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   // Patches carry onto the ears — a calico's black side takes its ear with
   // it. Stripes do not: they are laid out for the forehead, and letting them
   // through the ear clip just drops fragments of band on the ear backs.
-  const patches = (c.patches ?? []).map((p) =>
-    `<path d="${p.d}" fill="${p.fill}"${p.soft ? ` filter="url(#${id}f)" opacity=".8"` : ''}/>`).join('')
-  const stripeFill = c.stripes?.fill ?? 'none'
-  const stripes = (c.stripes?.d ?? []).map((e) =>
-    `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}"${e.rot ? ` transform="rotate(${e.rot} ${e.cx} ${e.cy})"` : ''} fill="${stripeFill}"/>`).join('')
+  // All three of them on every cat — a left side, a right side and a mask —
+  // because across the seven coats that is the whole vocabulary of patches,
+  // and a coat that wears none of them simply wears all three at nought.
+  const patches = ([['left', P.left, ''], ['right', P.right, ''],
+    ['mask', P.mask, ` filter="url(#${id}f)"`]] as const).map(([k, d, extra]) =>
+    `<path class="cat-mark" d="${d}" fill="var(--mark-${k})" opacity="var(--mark-${k}-on)"${extra}/>`).join('')
+  const stripes = STRIPES.map((e) =>
+    `<ellipse class="cat-mark" cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}"${e.rot ? ` transform="rotate(${e.rot} ${e.cx} ${e.cy})"` : ''} fill="var(--mark-stripe)" opacity="var(--mark-stripe-on)"/>`).join('')
   const marks = patches + stripes
 
   // Shading, kept to three moves. A light from the upper left that the whole
@@ -990,7 +1055,7 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   const volume = shade
     ? `<path class="cat-shade" style="d:path('${HEAD}')" fill="url(#${id}v)"/>` : ''
   const contact = shade
-    ? `<g class="cat-contact" clip-path="url(#${id}body)" filter="url(#${id}b)" opacity="${c.dark ? '.34' : '.26'}">
+    ? `<g class="cat-contact" clip-path="url(#${id}body)" filter="url(#${id}b)" opacity="var(--cat-contact-a)">
       <ellipse cx="27" cy="84" rx="16" ry="7" fill="#000"/>
       <ellipse cx="93" cy="84" rx="16" ry="7" fill="#000"/>
     </g>` : ''
@@ -1014,9 +1079,8 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
     <g class="cat-paw cat-paw-l" style="${pin(PIVOT.pawL, 0, 0, 0, POSE_PAW('l'))}"><path d="${PAW_L}"/></g>
     <g class="cat-paw cat-paw-r" style="${pin(PIVOT.pawR, 0, 0, 0, POSE_PAW('r'))}"><path d="${PAW_R}"/></g>`
 
-  const catRim = rim
-    ? `<g class="cat-rim" fill="none" stroke="#fff" stroke-width="9" opacity=".15"
-      stroke-linejoin="round">${silhouette}</g>` : ''
+  const catRim = `<g class="cat-rim" fill="none" stroke="#fff" stroke-width="9"
+      opacity="var(--cat-rim)" stroke-linejoin="round">${silhouette}</g>`
 
   // The drawing is laid out in a 120x108 field and the frame is wider than
   // that on every side, because almost everything she does makes her briefly
@@ -1029,7 +1093,8 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   // those combined. The margin is now ten units clear at the top, where every
   // one of those effects points.
   return `<svg viewBox="-14 -20 148 134" width="${size}" height="${size * 134 / 148}"
-  xmlns="http://www.w3.org/2000/svg" class="cat" role="img" aria-label="${c.name} cat, ${m.label.toLowerCase()}">
+  xmlns="http://www.w3.org/2000/svg" class="cat" role="img" aria-label="${c.name} cat, ${m.label.toLowerCase()}"
+  style="${Object.entries(coatVars(coat, rim)).map(([k, v]) => `${k}:${v}`).join(';')}">
   <defs>
     <clipPath id="${id}body"><path class="cat-skull-clip" style="d:path('${HEAD}')"/></clipPath>
     <clipPath id="${id}s"><path class="cat-skull-clip" style="d:path('${HEAD}')"/></clipPath>
@@ -1065,34 +1130,34 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
 
        The width is doubled because the fills cover the inner half of it,
        leaving 2.6 showing on the outside. -->
-  <g class="cat-outline" fill="none" stroke="${c.line}" stroke-width="5.2" stroke-linejoin="round">
+  <g class="cat-outline" fill="none" stroke="var(--cat-line)" stroke-width="5.2" stroke-linejoin="round">
     ${silhouette}
   </g>
   <g class="cat-head" style="${headStyle}">
     <g class="cat-ear cat-ear-l" style="${earStyle('l')}">
-      <path d="${EAR_L}" fill="${c.earFur ?? c.base}"/>
+      <path d="${EAR_L}" fill="var(--cat-ear-fur)"/>
       <g clip-path="url(#${id}el)">${patches}
-        <path class="cat-ear-in" d="${EAR_L_IN}" fill="${c.ear}"/></g>
+        <path class="cat-ear-in" d="${EAR_L_IN}" fill="var(--cat-ear)"/></g>
     </g>
     <g class="cat-ear cat-ear-r" style="${earStyle('r')}">
-      <path d="${EAR_R}" fill="${c.earFur ?? c.base}"/>
+      <path d="${EAR_R}" fill="var(--cat-ear-fur)"/>
       <g clip-path="url(#${id}er)">${patches}
-        <path class="cat-ear-in" d="${EAR_R_IN}" fill="${c.ear}"/></g>
+        <path class="cat-ear-in" d="${EAR_R_IN}" fill="var(--cat-ear)"/></g>
     </g>
-    <path class="cat-skull" style="d:path('${HEAD}')" fill="${c.base}"/>
+    <path class="cat-skull" style="d:path('${HEAD}')" fill="var(--cat-base)"/>
     <!-- No spread on these. The same markings are drawn three times — once on
          the head and once inside each ear clip — and moving only the head's
          copy breaks them apart at the ear's edge, which is worse than a cap
          that covers a little less of a wider head. -->
     <g class="cat-coat" clip-path="url(#${id}s)">${marks}</g>
     <ellipse class="cat-muzzle" cx="60" cy="75" rx="24" ry="13.5"
-      fill="${c.muzzle}" opacity="${c.muzzleAlpha ?? (c.dark ? 0.42 : 0.65)}"
+      fill="var(--cat-muzzle)" opacity="var(--cat-muzzle-a)"
       style="transform-box:view-box;transform-origin:60px 75px;transform:translateY(calc(${faceDy}px + ${DOWN})) ${rig ? UNSQUASH : ''}"/>
     ${volume}
-    ${c.chin ? `<ellipse class="cat-chin" clip-path="url(#${id}s)" cx="${c.chin.cx}"
-      cy="${c.chin.cy}" rx="${c.chin.rx}" ry="${c.chin.ry}" fill="${c.chin.fill}"/>` : ''}
+    <ellipse class="cat-chin" clip-path="url(#${id}s)" cx="${CHIN.cx}" cy="${CHIN.cy}"
+      rx="${CHIN.rx}" ry="${CHIN.ry}" fill="var(--mark-chin)" opacity="var(--mark-chin-on)"/>
     <g class="cat-whiskers" style="transform-box:view-box;transform-origin:60px 78px;transform:translateY(calc(${faceDy}px + ${DOWN})) rotate(calc(var(--huff,0) * -2.2deg + var(--whisk,0) * 2.1deg)) scaleX(calc(1 + var(--huff,0) * 0.035 + var(--whisk,0) * 0.022))">
-      ${WHISKERS.map((w, i) => `<path d="${w.d}" fill="none" stroke="${c.line}"
+      ${WHISKERS.map((w, i) => `<path d="${w.d}" fill="none" stroke="var(--cat-line)"
         stroke-width="1.8" stroke-linecap="round" style="transform-box:view-box;
         transform-origin:${w.at};transform:rotate(calc(var(--whisk-${i % 3}, 0deg) * ${w.swing}
         + var(--hop, 0) * ${w.flick}deg)) ${rig ? UNSQUASH : ''}"/>`).join('')}
@@ -1102,7 +1167,7 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
       <g class="cat-eye cat-eye-l" style="${pin(PIVOT.eyeL, 0, 0, 0, rig ? UNSQUASH : '')}">${rig ? side('l') : eyeL}</g>
       <g class="cat-eye cat-eye-r" style="${pin(PIVOT.eyeR, 0, 0, 0, rig ? UNSQUASH : '')}">${rig ? side('r') : eyeR}</g>
       <g class="cat-mouth" style="transform-box:view-box;transform-origin:60px 84px;transform:translateY(calc(${SNOUT}px + var(--face-dip,0) * 1.5px)) ${rig ? UNSQUASH : ''}">${rig ? mouthSets : MOUTHS[m.mouth](c)}</g>
-      <path class="cat-nose" d="${NOSE}" fill="${c.ear}"
+      <path class="cat-nose" d="${NOSE}" fill="var(--cat-ear)"
         style="transform-box:view-box;transform-origin:60px 76px;transform:translateY(calc(${SNOUT}px + var(--sniff,0) * -0.7px + var(--face-dip,0) * 1.1px + var(--huff,0) * -1.7px)) scale(calc(1 + var(--sniff,0) * 0.07 + var(--huff,0) * 0.16)) ${rig ? UNSQUASH : ''}"/>
     </g>
   </g>
@@ -1113,11 +1178,11 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   <g class="cat-emit" data-ink="${rim ? '#ffffff' : c.line}"></g>
   <g class="cat-paw cat-paw-l" style="${pin(PIVOT.pawL, 0, 0, 0, POSE_PAW('l'))}">
 <path d="${PAW_L}" ${pawFur}/><path d="${PAW_L}" ${pawVolume}/>
-    <path d="${TOES_L}" fill="none" stroke="${c.line}" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+    <path d="${TOES_L}" fill="none" stroke="var(--cat-line)" stroke-width="2" stroke-linecap="round" opacity=".45"/>
   </g>
   <g class="cat-paw cat-paw-r" style="${pin(PIVOT.pawR, 0, 0, 0, POSE_PAW('r'))}">
 <path d="${PAW_R}" ${pawFur}/><path d="${PAW_R}" ${pawVolume}/>
-    <path d="${TOES_R}" fill="none" stroke="${c.line}" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+    <path d="${TOES_R}" fill="none" stroke="var(--cat-line)" stroke-width="2" stroke-linecap="round" opacity=".45"/>
   </g>
 </svg>`
 }
