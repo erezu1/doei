@@ -657,6 +657,32 @@
 @property --huff-l   { syntax: '<number>'; initial-value: 0;    inherits: true; }
 @property --huff-r   { syntax: '<number>'; initial-value: 0;    inherits: true; }
 
+/* Her coat. Declared for the same reason her pose is: an untyped custom
+   property is a string, and a string cannot be interpolated — so a change of
+   coat jumped from one cat's colours to another's. Declared, each of these is
+   a colour or a number, and the whole change can be a fade. */
+@property --cat-base       { syntax: '<color>';  initial-value: #FBF2E3; inherits: true; }
+@property --cat-muzzle     { syntax: '<color>';  initial-value: #FFFCF6; inherits: true; }
+@property --cat-ear        { syntax: '<color>';  initial-value: #F2B3AA; inherits: true; }
+@property --cat-ear-fur    { syntax: '<color>';  initial-value: #FBF2E3; inherits: true; }
+@property --cat-iris       { syntax: '<color>';  initial-value: #FFFFFF; inherits: true; }
+@property --cat-pupil      { syntax: '<color>';  initial-value: #2A2622; inherits: true; }
+@property --cat-line       { syntax: '<color>';  initial-value: #5A4A3E; inherits: true; }
+@property --cat-paw        { syntax: '<color>';  initial-value: #FFFCF6; inherits: true; }
+@property --mark-left      { syntax: '<color>';  initial-value: #0000; inherits: true; }
+@property --mark-right     { syntax: '<color>';  initial-value: #0000; inherits: true; }
+@property --mark-mask      { syntax: '<color>';  initial-value: #0000; inherits: true; }
+@property --mark-stripe    { syntax: '<color>';  initial-value: #0000; inherits: true; }
+@property --mark-chin      { syntax: '<color>';  initial-value: #0000; inherits: true; }
+@property --cat-muzzle-a   { syntax: '<number>'; initial-value: 0.65; inherits: true; }
+@property --cat-contact-a  { syntax: '<number>'; initial-value: 0.26; inherits: true; }
+@property --cat-rim        { syntax: '<number>'; initial-value: 0; inherits: true; }
+@property --mark-left-on   { syntax: '<number>'; initial-value: 0; inherits: true; }
+@property --mark-right-on  { syntax: '<number>'; initial-value: 0; inherits: true; }
+@property --mark-mask-on   { syntax: '<number>'; initial-value: 0; inherits: true; }
+@property --mark-stripe-on { syntax: '<number>'; initial-value: 0; inherits: true; }
+@property --mark-chin-on   { syntax: '<number>'; initial-value: 0; inherits: true; }
+
 @property --tilt     { syntax: '<angle>';  initial-value: 0deg; inherits: true; }
 @property --sq       { syntax: '<number>'; initial-value: .85;  inherits: true; }
 @property --ear-l    { syntax: '<angle>';  initial-value: 0deg; inherits: true; }
@@ -782,7 +808,33 @@ svg.cat-rig {
     --gaze-px 200ms ease-out,
     --gaze-py 200ms ease-out,
     --bob-gain 260ms ease-out,
-    --shake-gain 200ms ease-out;
+    --shake-gain 200ms ease-out,
+    /* And her coat, which is set by `paint` rather than by a mood: the whole
+       of a change of coat, in the same 300ms the two drawings used to take to
+       fade out and in. Here rather than in a rule of its own, because a
+       second `transition` on the same element replaces this one rather than
+       adding to it — which is exactly what it did, silently. */
+    --cat-base 300ms ease,
+    --cat-muzzle 300ms ease,
+    --cat-ear 300ms ease,
+    --cat-ear-fur 300ms ease,
+    --cat-iris 300ms ease,
+    --cat-pupil 300ms ease,
+    --cat-line 300ms ease,
+    --cat-paw 300ms ease,
+    --mark-left 300ms ease,
+    --mark-right 300ms ease,
+    --mark-mask 300ms ease,
+    --mark-stripe 300ms ease,
+    --mark-chin 300ms ease,
+    --cat-muzzle-a 300ms ease,
+    --cat-contact-a 300ms ease,
+    --cat-rim 300ms ease,
+    --mark-left-on 300ms ease,
+    --mark-right-on 300ms ease,
+    --mark-mask-on 300ms ease,
+    --mark-stripe-on 300ms ease,
+    --mark-chin-on 300ms ease;
 }
 
 /* The CSS rule further down zeroes every duration, but the loop's own beats

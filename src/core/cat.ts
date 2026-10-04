@@ -933,6 +933,9 @@ export function coatVars(coat: string, rim = false): Record<string, string> {
     // The siamese's points have no edge: hers is drawn through a blur and
     // held back from full strength.
     '--mark-mask': mask?.fill ?? '#0000', '--mark-mask-on': mask ? '.8' : '0',
+    // The blur is hers alone: every other cat points this at nothing, so no
+    // one else carries a filter on an element that is merely invisible.
+    '--mark-mask-filter': mask ? 'var(--mask-blur)' : 'none',
     '--mark-stripe': c.stripes?.fill ?? '#0000', '--mark-stripe-on': c.stripes ? '1' : '0',
     '--mark-chin': c.chin?.fill ?? '#0000', '--mark-chin-on': c.chin ? '1' : '0',
   }
@@ -1042,7 +1045,7 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   // because across the seven coats that is the whole vocabulary of patches,
   // and a coat that wears none of them simply wears all three at nought.
   const patches = ([['left', P.left, ''], ['right', P.right, ''],
-    ['mask', P.mask, ` filter="url(#${id}f)"`]] as const).map(([k, d, extra]) =>
+    ['mask', P.mask, ` style="filter:var(--mark-mask-filter, none)"`]] as const).map(([k, d, extra]) =>
     `<path class="cat-mark" d="${d}" fill="var(--mark-${k})" opacity="var(--mark-${k}-on)"${extra}/>`).join('')
   const stripes = STRIPES.map((e) =>
     `<ellipse class="cat-mark" cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}"${e.rot ? ` transform="rotate(${e.rot} ${e.cx} ${e.cy})"` : ''} fill="var(--mark-stripe)" opacity="var(--mark-stripe-on)"/>`).join('')
@@ -1094,7 +1097,7 @@ export function catSvg({ coat = 'calico', mood = 'idle', rim = false, shade = tr
   // one of those effects points.
   return `<svg viewBox="-14 -20 148 134" width="${size}" height="${size * 134 / 148}"
   xmlns="http://www.w3.org/2000/svg" class="cat" role="img" aria-label="${c.name} cat, ${m.label.toLowerCase()}"
-  style="${Object.entries(coatVars(coat, rim)).map(([k, v]) => `${k}:${v}`).join(';')}">
+  style="--mask-blur:url(#${id}f);${Object.entries(coatVars(coat, rim)).map(([k, v]) => `${k}:${v}`).join(';')}">
   <defs>
     <clipPath id="${id}body"><path class="cat-skull-clip" style="d:path('${HEAD}')"/></clipPath>
     <clipPath id="${id}s"><path class="cat-skull-clip" style="d:path('${HEAD}')"/></clipPath>
