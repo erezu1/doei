@@ -1457,10 +1457,34 @@ export const SCENE: Record<SceneName, (r: CatRig) => void> = {
 // with whatever pose the mood has set instead of overwriting it.
 // ---------------------------------------------------------------------------
 
-export function idle(svg: SVGSVGElement, { breath = true } = {}) {
+/** How long each of her idle beats has left to wait. */
+export type Beats = Partial<Record<'blink' | 'flick' | 'glance' | 'sniff' | 'whisk', number>>
+
+export function idle(
+  svg: SVGSVGElement,
+  { breath = true, resume }: { breath?: boolean; resume?: Beats } = {},
+) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
   const timers = new Set<ReturnType<typeof setTimeout>>()
   let stopped = false
+  /**
+   * When each beat is next due, so a drawing that replaces this one can take
+   * the schedule over rather than draw a fresh one.
+   *
+   * Without this, a change of coat gave the new cat a whole new set of
+   * staggered first beats — a blink six hundred milliseconds in, a glance
+   * after a second and a half — and they landed while she was still fading
+   * in. The cat you were watching had done none of those things: something
+   * moved, and it moved for no reason.
+   */
+  const due: Record<string, number> = {}
+  /** Used once, by the first start. A tab coming back gets a fresh stagger. */
+  let carried: Beats | undefined = resume
+
+  const beat = (name: keyof Beats, fn: () => void, ms: number) => {
+    due[name] = performance.now() + ms
+    later(fn, ms)
+  }
 
   const later = (fn: () => void, ms: number) => {
     const t = setTimeout(() => {
@@ -1528,7 +1552,7 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   function blink() {
     if (stopped) return
     // On her back the flip draws her lids, blinks included.
-    if (svg.dataset.flip) return void later(blink, rand(2800, 7400))
+    if (svg.dataset.flip) return void beat('blink', blink, rand(2800, 7400))
     const t0 = performance.now()
     const step = (now: number) => {
       if (stopped) {
@@ -1549,8 +1573,8 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
     requestAnimationFrame(step)
     // Real blinks cluster. A double every so often is most of what stops the
     // interval sounding metronomic.
-    if (chance(0.16)) later(blink, SHUT + OPEN + rand(90, 170))
-    else later(blink, rand(2800, 7400))
+    if (chance(0.16)) beat('blink', blink, SHUT + OPEN + rand(90, 170))
+    else beat('blink', blink, rand(2800, 7400))
   }
 
   // --- ear flick ---------------------------------------------------------
@@ -1570,7 +1594,7 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
       340,
       'ease-out',
     )
-    later(flick, rand(5000, 13000))
+    beat('flick', flick, rand(5000, 13000))
   }
 
   // --- glance ------------------------------------------------------------
@@ -1581,7 +1605,7 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
     // And her gaze, which it turns into her frame.
     // And while she is in the middle of a trick, whose eyes are on the thing.
     if (svg.dataset.flip || svg.dataset.trick !== undefined)
-      return void later(glance, rand(4200, 11000))
+      return void beat('glance', glance, rand(4200, 11000))
     const x = rand(-2.6, 2.6).toFixed(2)
     const y = rand(-1.4, 0.9).toFixed(2)
     play(
@@ -1594,7 +1618,7 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
       rand(1400, 2200),
       'ease-in-out',
     )
-    later(glance, rand(4200, 11000))
+    beat('glance', glance, rand(4200, 11000))
   }
 
   // --- nose twitch -------------------------------------------------------
@@ -1602,7 +1626,7 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   function sniff() {
     if (stopped) return
     sniffOnce()
-    later(sniff, rand(9000, 24000))
+    beat('sniff', sniff, rand(9000, 24000))
   }
 
   function sniffOnce() {
@@ -1642,7 +1666,7 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
       rand(420, 620),
       'ease-out',
     )
-    later(whisk, rand(5200, 14000))
+    beat('whisk', whisk, rand(5200, 14000))
   }
 
   function start() {
@@ -1650,12 +1674,16 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
     stopped = false
     svg.classList.toggle('cat-breathing', breath)
     // Staggered entry, so the first few seconds are not all four beats at
-    // once — the same cascade rule, applied to starting up.
-    later(blink, rand(600, 2400))
-    later(flick, rand(2000, 6000))
-    later(glance, rand(1500, 5000))
-    later(sniff, rand(4000, 12000))
-    later(whisk, rand(1600, 5000))
+    // once — the same cascade rule, applied to starting up. Unless a drawing
+    // before this one was already keeping time, in which case this one picks
+    // the clock up where that one left it.
+    const was = carried
+    carried = undefined
+    beat('blink', blink, was?.blink ?? rand(600, 2400))
+    beat('flick', flick, was?.flick ?? rand(2000, 6000))
+    beat('glance', glance, was?.glance ?? rand(1500, 5000))
+    beat('sniff', sniff, was?.sniff ?? rand(4000, 12000))
+    beat('whisk', whisk, was?.whisk ?? rand(1600, 5000))
   }
 
   function stop() {
@@ -1674,8 +1702,19 @@ export function idle(svg: SVGSVGElement, { breath = true } = {}) {
   reduced.addEventListener('change', () => (reduced.matches ? stop() : start()))
 
   start()
-  return () => {
-    stop()
-    document.removeEventListener('visibilitychange', onVisibility)
+  return {
+    /** What each beat still has to wait, for the drawing that comes next. */
+    pending(): Beats {
+      const now = performance.now()
+      const left: Beats = {}
+      for (const [name, at] of Object.entries(due)) {
+        left[name as keyof Beats] = Math.max(0, at - now)
+      }
+      return left
+    },
+    stop() {
+      stop()
+      document.removeEventListener('visibilitychange', onVisibility)
+    },
   }
 }

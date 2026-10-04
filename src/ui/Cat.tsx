@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { catSvg, type CoatId } from '../core/cat'
-import { CatRig, idle, SCENE, type SceneName } from '../core/cat-rig'
+import { CatRig, idle, SCENE, type Beats, type SceneName } from '../core/cat-rig'
 import { playTrick, stopTrick, type Trick } from '../core/cat-tricks'
 
 // ---------------------------------------------------------------------------
@@ -73,6 +73,13 @@ export function Cat({
    * has to be caught on the way out and handed over on the way in.
    */
   const carried = useRef<ReturnType<CatRig['snapshot']> | null>(null)
+  /**
+   * And how long each of her idle beats still had to wait. A new drawing
+   * draws a fresh stagger otherwise, and its first blink or glance lands
+   * while she is still fading in — a cat that moves for no reason, which is
+   * the one thing a change of coat should not look like.
+   */
+  const beats = useRef<Beats | null>(null)
 
   // Rebuilt only when the drawing itself changes — a different cat, or a
   // different ramp to stand on. Never for a mood.
@@ -128,7 +135,7 @@ export function Cat({
     const r = new CatRig(svg, { flips })
     rig.current = r
     if (carried.current) r.restore(carried.current)
-    const stopIdle = idle(svg)
+    const loop = idle(svg, { resume: beats.current ?? undefined })
     // And the loops themselves, AFTER the idle loop has started them — there
     // is nothing to line up with until it has. The breath and the knead begin
     // at zero on a new element, so without this the two cats breathe out of
@@ -139,7 +146,8 @@ export function Cat({
       // Mid-trick, the trick goes with her: its props are drawn in her.
       stopTrick(r)
       carried.current = r.snapshot()
-      stopIdle()
+      beats.current = loop.pending()
+      loop.stop()
       r.destroy()
       rig.current = null
     }
