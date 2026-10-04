@@ -5,6 +5,7 @@ import type { Deck } from './core/types'
 import { setAtRest } from './core/update'
 import { useSession } from './session/useSession'
 import { Done } from './ui/Done'
+import { LevelUp } from './ui/LevelUp'
 import { Home } from './ui/Home'
 import { InstallPrompt } from './ui/InstallPrompt'
 import { LevelPicker } from './ui/LevelPicker'
@@ -157,8 +158,12 @@ export default function App() {
   const showWelcome = firstRun && !greeted
   // Asked once, after the welcome.
   const showLevel = (firstRun && greeted) || screen === 'level'
-  const reviewing = !showLevel && screen === 'review' && session.status === 'reviewing'
-  const finished = !showLevel && screen === 'review' && session.status === 'done'
+  // A level finished takes the screen the moment it finishes, whether the
+  // round is over or not — and when it was the last card of the round, it goes
+  // first and the round's own ending follows it.
+  const leveling = !showLevel && screen === 'review' && session.levelUp !== null
+  const reviewing = !leveling && !showLevel && screen === 'review' && session.status === 'reviewing'
+  const finished = !leveling && !showLevel && screen === 'review' && session.status === 'done'
 
   return (
     <>
@@ -183,6 +188,22 @@ export default function App() {
                 setScreen('home')
               }}
               onCancel={session.levelChosen ? () => setScreen('home') : undefined}
+            />
+          </Screen>
+        ) : leveling ? (
+          <Screen key={`level-up-${session.levelUp!.key}`}>
+            <LevelUp
+              from={session.levelUp!.from}
+              to={session.levelUp!.to}
+              points={session.levelUp!.points}
+              left={Math.max(0, session.length - session.position)}
+              coat={session.coat}
+              dark={session.resolvedMode === 'dark'}
+              onContinue={session.clearLevelUp}
+              onHome={() => {
+                session.clearLevelUp()
+                setScreen('home')
+              }}
             />
           </Screen>
         ) : reviewing ? (
@@ -212,7 +233,6 @@ export default function App() {
           <Screen key="done">
             <Done
               stats={session.stats}
-              score={session.score}
               points={session.sessionPoints}
               coat={session.coat}
               dark={session.resolvedMode === 'dark'}

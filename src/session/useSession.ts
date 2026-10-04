@@ -6,6 +6,7 @@ import { DEFAULT_VOICE, setVoice as speechVoice, voiceById } from '../core/speec
 import { buildQueue, DEFAULTS, isUnlocked, type QueueOptions } from '../core/queue'
 import { applyGrade, emptyState, isNew, Rating, State, type Grade } from '../core/scheduler'
 import { awardFor, type Award } from '../core/score'
+import { rungAt, type Rung } from '../core/ladder'
 import { DEFAULT_LEVEL, levelById, type LevelOption } from '../core/levels'
 import {
   DEFAULT_WEEK_START,
@@ -108,6 +109,16 @@ interface SavedRound {
   points: number
 }
 
+/** A level crossed, and what the ring needs to draw it closing. */
+export interface LevelCrossing {
+  from: Rung
+  to: Rung
+  /** The answer that did it, which is what the count runs up by. */
+  points: number
+  /** A new one every time, so the same level twice still plays twice. */
+  key: number
+}
+
 export interface Session {
   status: SessionStatus
   prompt: Prompt | null
@@ -126,6 +137,12 @@ export interface Session {
   sessionPoints: number
   /** The most recent award, for the animation. Null between sessions. */
   award: (Award & { key: number }) | null
+  /**
+   * A level finished, waiting to be celebrated. Set the moment the answer
+   * that crossed it is left behind, and cleared when the screen is dismissed.
+   */
+  levelUp: LevelCrossing | null
+  clearLevelUp: () => void
   /** Set for a choice prompt once answered: the grade the app will apply. */
   autoGrade: Grade | null
   /** This week, for the strip under the button. */
@@ -193,6 +210,7 @@ export function useSession(deck: Deck): Session {
   const [mode, setModeState] = useState<Mode>(DEFAULT_MODE)
   const [resolvedMode, setResolvedMode] = useState<Resolved>(() => resolveMode(DEFAULT_MODE))
   const [score, setScore] = useState(0)
+  const [levelUp, setLevelUp] = useState<LevelCrossing | null>(null)
   /**
    * What today has earned.
    *
@@ -249,6 +267,16 @@ export function useSession(deck: Deck): Session {
   /** The live states, so advancing can see an answer recorded a moment ago. */
   const statesRef = useRef(states)
   statesRef.current = states
+  /** The live score, so recording an answer can see what it was worth. */
+  const scoreRef = useRef(score)
+  scoreRef.current = score
+  /**
+   * A level crossed by the answer being recorded, held back until the card is
+   * left behind. Celebrating it the instant the points land would take the
+   * screen away from the answer you are still reading — and a wrong answer is
+   * exactly when you are reading it.
+   */
+  const crossing = useRef<LevelCrossing | null>(null)
 
   const clearRevealTimer = useCallback(() => {
     if (revealTimer.current) {
@@ -266,100 +294,103 @@ export function useSession(deck: Deck): Session {
     // loaded below is already the state after the correction.
     forgetRetaught(deck.resets ?? [])
       .catch(() => {})
-      .then(() => Promise.all([
-      db.states.toArray(),
-      db.reviews.where('at').aboveOrEqual(startOfToday()).count(),
-      getMeta<Intake>('intake', EMPTY_INTAKE),
-      // Nine days rather than this week: which day the week starts on is a
-      // setting, and it is loaded by this same call. Days outside the week on
-      // screen are simply never looked up.
-      db.reviews
-        .where('at')
-        .aboveOrEqual(Date.now() - 9 * 24 * 60 * 60 * 1000)
-        .toArray(),
-      getMeta<string[]>('finishedDays', []),
-      getMeta<unknown>('weekStart', DEFAULT_WEEK_START),
-      db.reviews.orderBy('at').first(),
-      getMeta<string | null>('level', null),
-      getMeta<string | null>('theme', null),
-      getMeta<string | null>('coat', null),
-      getMeta<string | null>('mode', null),
-      getMeta<number>('score', 0),
-      getMeta<{ day: string; points: number } | null>('pointsToday', null),
-      getMeta<boolean>('autoContinue', false),
-      getMeta<SavedRound | null>('round', null),
-      getMeta<string | null>('voice', null),
-    ])).then(
-      ([
-        rows,
-        done,
-        savedIntake,
-        thisWeek,
-        savedFinished,
-        savedWeekStart,
-        earliest,
-        savedLevel,
-        savedTheme,
-        savedCoat,
-        savedMode,
-        savedScore,
-        savedPointsToday,
-        savedAuto,
-        savedRound,
-        savedVoice,
-      ]) => {
-        if (cancelled) return
-        setStates(new Map(rows.map((r) => [r.cardId, r] as const)))
-        setDoneToday(done)
-        setIntake(spentToday(savedIntake))
-        setStudied(new Set(thisWeek.map((r) => dayKey(new Date(r.at)))))
-        setFinished(new Set(savedFinished))
-        setFirstDay(earliest ? dayKey(new Date(earliest.at)) : null)
-        setWeekStartsOnState(weekStartDay(savedWeekStart))
-        setLevelState(levelById(savedLevel))
-        setLevelChosen(savedLevel !== null)
-        setScore(savedScore)
-        pointsDay.current = savedPointsToday?.day ?? ''
-        setPointsToday(savedPointsToday?.day === today() ? savedPointsToday.points : 0)
-        setAutoContinueState(savedAuto)
-        const t = themeById(savedTheme)
-        // Nacht used to be one of the colours. Anyone who was using it wanted a
-        // dark app, so that is what they get — in whichever colour they land on.
-        const m = savedMode === null && wasNightScheme(savedTheme) ? 'dark' : modeById(savedMode)
-        setThemeState(t)
-        setCoatState(coatById(savedCoat))
-        setVoiceState(voiceById(savedVoice).id)
-        speechVoice(voiceById(savedVoice).id)
-        setModeState(m)
-        setResolvedMode(resolveMode(m))
-        applyAppearance(t, m)
+      .then(() =>
+        Promise.all([
+          db.states.toArray(),
+          db.reviews.where('at').aboveOrEqual(startOfToday()).count(),
+          getMeta<Intake>('intake', EMPTY_INTAKE),
+          // Nine days rather than this week: which day the week starts on is a
+          // setting, and it is loaded by this same call. Days outside the week on
+          // screen are simply never looked up.
+          db.reviews
+            .where('at')
+            .aboveOrEqual(Date.now() - 9 * 24 * 60 * 60 * 1000)
+            .toArray(),
+          getMeta<string[]>('finishedDays', []),
+          getMeta<unknown>('weekStart', DEFAULT_WEEK_START),
+          db.reviews.orderBy('at').first(),
+          getMeta<string | null>('level', null),
+          getMeta<string | null>('theme', null),
+          getMeta<string | null>('coat', null),
+          getMeta<string | null>('mode', null),
+          getMeta<number>('score', 0),
+          getMeta<{ day: string; points: number } | null>('pointsToday', null),
+          getMeta<boolean>('autoContinue', false),
+          getMeta<SavedRound | null>('round', null),
+          getMeta<string | null>('voice', null),
+        ]),
+      )
+      .then(
+        ([
+          rows,
+          done,
+          savedIntake,
+          thisWeek,
+          savedFinished,
+          savedWeekStart,
+          earliest,
+          savedLevel,
+          savedTheme,
+          savedCoat,
+          savedMode,
+          savedScore,
+          savedPointsToday,
+          savedAuto,
+          savedRound,
+          savedVoice,
+        ]) => {
+          if (cancelled) return
+          setStates(new Map(rows.map((r) => [r.cardId, r] as const)))
+          setDoneToday(done)
+          setIntake(spentToday(savedIntake))
+          setStudied(new Set(thisWeek.map((r) => dayKey(new Date(r.at)))))
+          setFinished(new Set(savedFinished))
+          setFirstDay(earliest ? dayKey(new Date(earliest.at)) : null)
+          setWeekStartsOnState(weekStartDay(savedWeekStart))
+          setLevelState(levelById(savedLevel))
+          setLevelChosen(savedLevel !== null)
+          setScore(savedScore)
+          pointsDay.current = savedPointsToday?.day ?? ''
+          setPointsToday(savedPointsToday?.day === today() ? savedPointsToday.points : 0)
+          setAutoContinueState(savedAuto)
+          const t = themeById(savedTheme)
+          // Nacht used to be one of the colours. Anyone who was using it wanted a
+          // dark app, so that is what they get — in whichever colour they land on.
+          const m = savedMode === null && wasNightScheme(savedTheme) ? 'dark' : modeById(savedMode)
+          setThemeState(t)
+          setCoatState(coatById(savedCoat))
+          setVoiceState(voiceById(savedVoice).id)
+          speechVoice(voiceById(savedVoice).id)
+          setModeState(m)
+          setResolvedMode(resolveMode(m))
+          applyAppearance(t, m)
 
-        // Back into the round, if there was one and it is still today's. A
-        // reload in the middle of a round used to lose it: the queue lived
-        // only in memory, so the app came back with nothing in hand and the
-        // work you had done was somewhere behind you rather than in front.
-        // Nothing is re-graded — every answer was written down as it was
-        // given — this only puts the same cards back in the same order at the
-        // same place.
-        const by = new Map(cards.map((c) => [c.id, c] as const))
-        const q =
-          savedRound?.day === today()
-            ? savedRound.ids.map((cid) => by.get(cid)).filter((c): c is Card => !!c)
-            : []
-        if (savedRound && q.length === savedRound.ids.length && savedRound.index < q.length) {
-          queueRef.current = q
-          setQueue(q)
-          setIndex(savedRound.index)
-          setReviewed(savedRound.reviewed)
-          setCorrectCount(savedRound.correct)
-          setSessionPoints(savedRound.points)
-          shownAt.current = Date.now()
-          setStatus('reviewing')
-          return
-        }
-        setStatus('idle')
-      },
-    )
+          // Back into the round, if there was one and it is still today's. A
+          // reload in the middle of a round used to lose it: the queue lived
+          // only in memory, so the app came back with nothing in hand and the
+          // work you had done was somewhere behind you rather than in front.
+          // Nothing is re-graded — every answer was written down as it was
+          // given — this only puts the same cards back in the same order at the
+          // same place.
+          const by = new Map(cards.map((c) => [c.id, c] as const))
+          const q =
+            savedRound?.day === today()
+              ? savedRound.ids.map((cid) => by.get(cid)).filter((c): c is Card => !!c)
+              : []
+          if (savedRound && q.length === savedRound.ids.length && savedRound.index < q.length) {
+            queueRef.current = q
+            setQueue(q)
+            setIndex(savedRound.index)
+            setReviewed(savedRound.reviewed)
+            setCorrectCount(savedRound.correct)
+            setSessionPoints(savedRound.points)
+            shownAt.current = Date.now()
+            setStatus('reviewing')
+            return
+          }
+          setStatus('idle')
+        },
+      )
     return () => {
       cancelled = true
     }
@@ -517,17 +548,7 @@ export function useSession(deck: Deck): Session {
       roundDone: position,
       roundSize: queue.length,
     }
-  }, [
-    deck,
-    states,
-    preview,
-    extraPreview,
-    reviewed,
-    correctCount,
-    doneToday,
-    position,
-    queue,
-  ])
+  }, [deck, states, preview, extraPreview, reviewed, correctCount, doneToday, position, queue])
 
   /**
    * The round on disk, kept level with the round in hand.
@@ -607,6 +628,9 @@ export function useSession(deck: Deck): Session {
       const q = buildQueue(cards, states, optionsFor(extra))
       undoStack.current = []
       pending.current = { amount: 0, answers: 0 }
+      // A crossing belongs to the round that earned it, celebrated or not.
+      crossing.current = null
+      setLevelUp(null)
       queueRef.current = q.cards
       recorded.current = false
       setQueue(q.cards)
@@ -681,6 +705,13 @@ export function useSession(deck: Deck): Session {
 
       statesRef.current = new Map(statesRef.current).set(card.id, next)
       setStates(statesRef.current)
+      // Worked out here rather than at the end of the round: the ladder is
+      // crossed by one answer, and that is the moment worth marking.
+      const before = rungAt(scoreRef.current)
+      const after = rungAt(scoreRef.current + earned.amount)
+      if (after.level > before.level) {
+        crossing.current = { from: before, to: after, points: earned.amount, key: Date.now() }
+      }
       setScore((s) => {
         const total = s + earned.amount
         void setMeta('score', total).catch(() => {})
@@ -772,6 +803,12 @@ export function useSession(deck: Deck): Session {
   /** Moves to the next card. Separate, so recording can happen earlier. */
   const advance = useCallback(() => {
     clearRevealTimer()
+    // The next card is set up underneath either way; the level screen sits
+    // over it until it is dismissed, so nothing has to be advanced twice.
+    if (crossing.current) {
+      setLevelUp(crossing.current)
+      crossing.current = null
+    }
     recorded.current = false
     setAnswered(false)
     setRevealed(false)
@@ -798,6 +835,8 @@ export function useSession(deck: Deck): Session {
     },
     [record, advance],
   )
+
+  const clearLevelUp = useCallback(() => setLevelUp(null), [])
 
   const undo = useCallback(async () => {
     clearRevealTimer()
@@ -853,6 +892,8 @@ export function useSession(deck: Deck): Session {
     pointsToday,
     sessionPoints,
     award,
+    levelUp,
+    clearLevelUp,
     autoGrade,
     week,
     weekStartsOn,
