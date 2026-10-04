@@ -66,6 +66,10 @@ const FOLLOW_ORDER: Record<Card['type'], number> = {
   plural: 1,
   participle: 1,
   auxiliary: 1,
+  // Few of them, and each teaches something you cannot guess — the same
+  // reason the grammar cards go first.
+  number: 1,
+  compound: 1,
   recall: 2,
   cloze: 3,
 }

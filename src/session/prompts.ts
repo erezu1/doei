@@ -1,4 +1,5 @@
 import { blankOut, clozeSource, type Card, type CardType } from '../core/cards'
+import { compoundFor, nearNumbers, spell, valueOf } from '../core/numbers'
 import type { Note } from '../core/types'
 
 // ---------------------------------------------------------------------------
@@ -324,6 +325,33 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
         speak: note.verb!.participle,
         ...exampleOf(note, note.verb!.participle),
       }
+
+    case 'number':
+    case 'compound': {
+      // The question is the digits, which belong to no language: there is
+      // nothing to read out and nothing to translate, only something to say.
+      const value = valueOf(note.nl)!
+      const n = card.type === 'compound' ? compoundFor(value)! : value
+      const said = spell(n)
+      const choice = ctx.introduce
+      return {
+        ...base,
+        shape: choice ? 'choice' : 'reveal',
+        instruction: 'How do you say this number?',
+        question: String(n),
+        questionLang: 'en',
+        answer: said,
+        answerLang: 'nl',
+        // The mistakes you would actually make: the same digits the other way
+        // round, a neighbouring ten, a neighbouring unit. Which also means
+        // the options cannot be told apart by length or by shape.
+        choices: choice ? shuffle([said, ...nearNumbers(n).map(spell)]) : undefined,
+        speak: said,
+        // Said with the answer, where it explains what just happened rather
+        // than giving it away beforehand.
+        meaning: card.type === 'compound' ? 'units first, then the ten' : undefined,
+      }
+    }
 
     case 'cloze': {
       const ex = clozeSource(note)!

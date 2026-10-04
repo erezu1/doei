@@ -1,3 +1,4 @@
+import { compoundFor, valueOf } from './numbers'
 import type { Note } from './types'
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,8 @@ export type CardType =
   | 'participle' // past participle
   | 'auxiliary' // hebben or zijn?
   | 'cloze' // which word fills this gap?
+  | 'number' // the digits, said in Dutch
+  | 'compound' // and the two-digit ones, which run backwards
 
 export interface Card {
   id: string
@@ -89,6 +92,19 @@ export function cardsForNote(note: Note): Card[] {
     // "hebben" is the default and "both" is too conditional to drill, so only
     // the zijn verbs get asked — and only where the auxiliary is known.
     if (!note.verb.auxiliaryUnknown && note.verb.auxiliary === 'zijn') types.push('auxiliary')
+  }
+
+  // A number word also teaches the number. Knowing that `zeven` means seven
+  // is not the same as being able to say 7 when it is in front of you, and
+  // the second one is what you need at a till.
+  if (note.pos === 'num') {
+    const value = valueOf(note.nl)
+    if (value !== null) {
+      types.push('number')
+      // And each tens word carries its own decade's compound, which is where
+      // the rule lives: 47 is seven-and-forty, backwards from English.
+      if (compoundFor(value) !== null) types.push('compound')
+    }
   }
 
   // A gap-fill needs a sentence containing the word itself, and a word whose
