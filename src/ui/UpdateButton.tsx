@@ -93,18 +93,20 @@ export function UpdateButton() {
         <AnimatePresence initial={false} mode="wait">
           <motion.span
             key={state === 'latest' || state === 'failed' ? state : 'arrow'}
-            // Clockwise throughout, which is the way the spin was going.
+            // Anticlockwise throughout, because that is the way the arrows
+            // themselves point and the way the spin goes: a glyph that turns
+            // against its own arrowheads reads as a stutter.
             // Quick, because this now happens twice in a row rather than at
             // once: a spring here would make the swap feel like a decision.
-            initial={{ opacity: 0, rotate: -110 }}
+            initial={{ opacity: 0, rotate: 110 }}
             animate={{ opacity: 1, rotate: 0 }}
-            exit={{ opacity: 0, rotate: 110 }}
+            exit={{ opacity: 0, rotate: -110 }}
             transition={{ duration: 0.17, ease: [0.22, 1, 0.36, 1] }}
             className="grid"
           >
             <motion.span
               className="grid"
-              animate={state === 'checking' ? { rotate: 360 } : { rotate: 0 }}
+              animate={state === 'checking' ? { rotate: -360 } : { rotate: 0 }}
               transition={
                 state === 'checking'
                   ? { duration: 0.9, ease: 'linear', repeat: Infinity }
