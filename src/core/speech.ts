@@ -12,6 +12,13 @@
 // chosen.
 //
 // About the phone's voice:
+// She never speaks unless you ask her to. Every call to `speak` comes from a
+// tap — on the word, on the sentence, on the speaker beside them, or on "Hear
+// it" in Settings — and nothing here is wired to a card arriving or an answer
+// being revealed. A language app that talks at you on a train is one you stop
+// taking on trains, so if that is ever to change it has to be a switch
+// somebody turned on themselves.
+//
 // One thing to know before reading any of this: an empty voice list does not
 // mean a silent phone. Android hands `getVoices()` back empty for the first
 // seconds, and on plenty of devices until something has actually been spoken —
