@@ -119,49 +119,139 @@ export function setVoice(id: string): void {
   chosen = voiceById(id).id
 }
 
-/** One player for the whole app, so a new word stops the last one. */
-let player: HTMLAudioElement | null = null
 /** Bumped by every call to speak, so a slow fetch can tell it has been overtaken. */
 let turn = 0
+
+/**
+ * The output, kept open.
+ *
+ * A fresh <audio> element for every tap was the obvious way and it was wrong
+ * on a phone: each one opens the audio output again, and the device takes a
+ * moment to come up. That moment lands inside whatever is playing. A clip is
+ * trimmed to sixty milliseconds of silence before the first sound, so on a
+ * word of half a second it was eating the opening consonant — which is most
+ * of what tells `kat` from `hat`. In a sentence it ate part of "de" and
+ * nobody noticed, which is exactly the shape of the complaint: words sounded
+ * worse than sentences, and sounded cut.
+ *
+ * One context, held open, and every clip scheduled a little way ahead of now,
+ * so the spin-up happens during the silence instead of during the word.
+ */
+let out: AudioContext | null = null
+/** Long enough to cover the device waking up; short enough not to feel like a wait. */
+const LEAD = 0.07
+/** What is playing, so the next word can stop it. */
+let source: AudioBufferSourceNode | null = null
+/**
+ * Held open between words and let go afterwards. An output that stays open is
+ * what makes the next tap instant, and an output that stays open for the rest
+ * of the evening is a phone with its audio hardware awake for no reason — so
+ * it is kept for as long as someone is plainly still tapping, and no longer.
+ */
+let idle: ReturnType<typeof setTimeout> | null = null
+const HOLD_OPEN = 12000
+/**
+ * Clips already decoded, by voice and name. Decoding is the slow part of a
+ * repeat — the bytes are in the service worker's cache, but turning them back
+ * into sound is work — so the second tap of a word is instant.
+ */
+const decoded = new Map<string, AudioBuffer>()
+/** A few minutes of speech. Each one is about fifty kilobytes decoded. */
+const KEEP = 80
+
+/**
+ * The audio output, started on the tap that first needs it.
+ *
+ * Called before anything is awaited, because a browser only lets a page start
+ * audio while it is handling a real gesture, and an await spends that.
+ */
+function output(): AudioContext | null {
+  if (idle) {
+    clearTimeout(idle)
+    idle = null
+  }
+  if (out) {
+    if (out.state === 'suspended') void out.resume().catch(() => {})
+    return out
+  }
+  const Ctor =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctor) return null
+  try {
+    out = new Ctor()
+  } catch {
+    return null
+  }
+  return out
+}
+
+/** Stops whatever is playing, without that counting as a failure. */
+function hush(): void {
+  try {
+    source?.stop()
+  } catch {
+    /* already finished */
+  }
+  source = null
+}
 
 /**
  * Plays the recording of the text. Resolves true once it has had its say —
  * played to the end, or been cut off by the next word — and false when there
  * is no recording to play: a missing file, or offline with nothing cached.
  *
- * Fetched rather than handed to the player as a URL: an audio element asks
- * for byte ranges, which a cached response can't always answer, and a fetch
- * says plainly whether the file exists before anything tries to play it.
+ * Fetched rather than handed to a player as a URL: an audio element asks for
+ * byte ranges, which a cached response can't always answer, and a fetch says
+ * plainly whether the file exists before anything tries to play it.
  */
 async function playClip(text: string, voice: string, mine: number): Promise<boolean> {
   if (voice === 'phone') return false
-  if (typeof Audio === 'undefined' || typeof fetch === 'undefined') return false
-  let blob: Blob
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}audio/${voice}/${clipName(text)}.ogg`)
-    if (!res.ok) return false
-    blob = await res.blob()
-  } catch {
-    return false
+  if (typeof fetch === 'undefined') return false
+  const audio = output()
+  if (!audio) return false
+
+  const key = `${voice}/${clipName(text)}`
+  let clip = decoded.get(key)
+  if (!clip) {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}audio/${key}.ogg`)
+      if (!res.ok) return false
+      clip = await audio.decodeAudioData(await res.arrayBuffer())
+    } catch {
+      return false
+    }
+    decoded.set(key, clip)
+    // Oldest first, which is insertion order for a Map.
+    if (decoded.size > KEEP) decoded.delete(decoded.keys().next().value!)
   }
   if (mine !== turn) return true
-  const src = URL.createObjectURL(blob)
-  const audio = new Audio(src)
-  player = audio
-  return new Promise<boolean>((resolve) => {
-    let started = false
-    const settle = (played: boolean) => {
-      audio.onended = audio.onerror = audio.onpause = null
-      URL.revokeObjectURL(src)
-      resolve(played)
+  // Awake before the lead is measured out, or the waking would be spent out of
+  // it and the word would start clipped again — the very thing the lead is for.
+  if (audio.state === 'suspended') {
+    try {
+      await audio.resume()
+    } catch {
+      return false
     }
-    audio.onended = () => settle(true)
-    audio.onpause = () => settle(true)
-    audio.onerror = () => settle(started)
-    audio.play().then(
-      () => (started = true),
-      () => settle(false),
-    )
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const node = audio.createBufferSource()
+    node.buffer = clip!
+    node.connect(audio.destination)
+    node.onended = () => {
+      if (source === node) source = null
+      // Nothing more for a while means nothing more tonight, probably.
+      if (idle) clearTimeout(idle)
+      idle = setTimeout(() => {
+        idle = null
+        if (!source) void out?.suspend().catch(() => {})
+      }, HOLD_OPEN)
+      resolve(true)
+    }
+    source = node
+    node.start(audio.currentTime + LEAD)
   })
 }
 
@@ -173,7 +263,10 @@ async function playClip(text: string, voice: string, mine: number): Promise<bool
 export async function speak(text: string, rate = 0.9, voice = chosen): Promise<void> {
   if (!text) return
   const mine = ++turn
-  player?.pause()
+  // Both before the first await: the browser only lets a page start audio
+  // while it is still handling the tap.
+  output()
+  hush()
   if (synthesizes()) window.speechSynthesis.cancel()
   if (await playClip(text, voice, mine)) return
   if (mine !== turn) return
