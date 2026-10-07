@@ -74,6 +74,28 @@ def cyrb53(text: str, seed: int = 0) -> str:
     return format(value, 'x')
 
 
+UNITS = ['nul', 'een', 'twee', 'drie', 'vier', 'vijf', 'zes', 'zeven', 'acht', 'negen']
+TEENS = {10: 'tien', 11: 'elf', 12: 'twaalf', 13: 'dertien', 14: 'veertien', 15: 'vijftien',
+         16: 'zestien', 17: 'zeventien', 18: 'achttien', 19: 'negentien'}
+TENS = {20: 'twintig', 30: 'dertig', 40: 'veertig', 50: 'vijftig',
+        60: 'zestig', 70: 'zeventig', 80: 'tachtig', 90: 'negentig'}
+# The compound each tens word teaches. Both tables mirror src/core/numbers.ts.
+TEACHES = {20: 2, 30: 3, 40: 7, 50: 1, 60: 4, 70: 8, 80: 5, 90: 9}
+
+
+def spell(n: int) -> str:
+    """A number written the way it is said. See src/core/numbers.ts."""
+    if n < 10:
+        return UNITS[n]
+    if n < 20:
+        return TEENS[n]
+    tens, unit = n // 10 * 10, n % 10
+    if not unit:
+        return TENS[tens]
+    joined = 'tweeën' if unit == 2 else 'drieën' if unit == 3 else UNITS[unit] + 'en'
+    return joined + TENS[tens]
+
+
 def texts(deck) -> set[str]:
     """Everything a card can speak — mirrors the `speak` fields in session/prompts.ts."""
     out = set(EXTRA)
@@ -88,6 +110,12 @@ def texts(deck) -> set[str]:
             aux = 'hebben' if v.get('auxiliary') == 'both' else v.get('auxiliary', 'hebben')
             out.add(v['participle'])
             out.add(f"{aux} {v['participle']}")
+        # The two-digit number a tens word teaches — "tweeëntwintig" — which
+        # is the one thing a card says that is nowhere in the deck.
+        if n.get('pos') == 'num':
+            for value, unit in TEACHES.items():
+                if n['nl'] == TENS[value]:
+                    out.add(spell(value + unit))
         for ex in n.get('examples', []):
             out.add(ex['nl'])
     return {norm(t) for t in out if t and norm(t)}
