@@ -199,7 +199,12 @@ def main():
             sys.exit(f'missing model {model} — see the setup at the top of this file')
         if todo:
             jobs.append((voice, model, todo))
-    if jobs:
+    # One voice is one process already; a pool of one is a pool for nothing,
+    # and it hides any error it hits behind a pickled traceback.
+    if len(jobs) == 1:
+        voice, n = record_voice(jobs[0])
+        print(f'{voice}: recorded {n}')
+    elif jobs:
         with Pool(len(jobs)) as pool:
             for voice, n in pool.imap_unordered(record_voice, jobs):
                 print(f'{voice}: recorded {n}')

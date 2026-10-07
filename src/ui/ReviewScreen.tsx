@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { CoatId } from '../core/cat'
 import type { SceneName } from '../core/cat-rig'
+import { warm } from '../core/speech'
 import type { Session } from '../session/useSession'
 import { ContinueBar, GradeBar } from './GradeBar'
 import { cardVariants, glide, quiet, swapVariants, tap, turn } from './motion'
@@ -65,6 +66,14 @@ export function ReviewScreen({ session, coat, dark, onExit }: Props) {
   // The clock belongs to the button rather than to this screen: it is the
   // thing you pause, and a timer up here with nothing on screen to show for
   // it was a card leaving while you were still looking at it.
+  // The card's own recording, fetched while the question is being read, so
+  // the speaker plays the moment it is tapped rather than after a download.
+  // One file of a few kilobytes per card, and the service worker keeps it.
+  const clip = prompt?.speak
+  useEffect(() => {
+    if (clip) void warm(clip)
+  }, [clip])
+
   const counting = session.autoContinue && correct === true
 
   if (!prompt) return null

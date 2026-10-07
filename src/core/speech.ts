@@ -214,6 +214,40 @@ function hush(): void {
 }
 
 /**
+ * Fetches a clip ahead of being asked for it, and keeps it.
+ *
+ * The recordings are not part of the install — thirty thousand small files
+ * would make opening the app a 127 MB download — so the first tap of a word
+ * is the one that fetches it. That is a few tens of milliseconds on a good
+ * connection and a visible wait on a bad one, for the one clip on screen that
+ * is most likely to be tapped.
+ *
+ * So the card asks for it while you are still reading the question. The
+ * service worker keeps the file for good, which is what makes it instant the
+ * next time and audible offline; decoding it as well is only possible once
+ * something has played, because that is when there is an output to decode
+ * with, and it is the smaller half of the wait anyway.
+ *
+ * Quiet by design: it never plays, never interrupts what is playing, and a
+ * failure is simply a tap that fetches for itself later.
+ */
+export async function warm(text: string, voice = chosen): Promise<void> {
+  if (!text || voice === 'phone' || typeof fetch === 'undefined') return
+  const key = `${voice}/${clipName(text)}`
+  if (decoded.has(key)) return
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}audio/${key}.ogg`)
+    if (!res.ok) return
+    const bytes = await res.arrayBuffer()
+    if (!out || decoded.has(key)) return
+    decoded.set(key, await out.decodeAudioData(bytes))
+    if (decoded.size > KEEP) decoded.delete(decoded.keys().next().value!)
+  } catch {
+    /* offline, or no such recording: the tap will say so itself */
+  }
+}
+
+/**
  * Plays the recording of the text. Resolves true once it has had its say —
  * played to the end, or been cut off by the next word — and false when there
  * is no recording to play: a missing file, or offline with nothing cached.
