@@ -2,7 +2,6 @@ import { AnimatePresence, animate, motion, useMotionValue, useTransform } from '
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AnimationPlaybackControls } from 'framer-motion'
 import { Rating, type Grade } from '../core/scheduler'
-import { onSpeaking } from '../core/speech'
 import { Button, wash } from './Button'
 
 // ---------------------------------------------------------------------------
@@ -82,9 +81,16 @@ const LABEL: Record<Phase, string> = {
 export function ContinueBar({
   onContinue,
   countdown = false,
+  heard = 0,
 }: {
   onContinue: () => void
   countdown?: boolean
+  /**
+   * How many times the card has been asked to say something. The screen above
+   * counts; what a tap on the speaker means for the clock is decided here,
+   * with the rest of what the clock does.
+   */
+  heard?: number
 }) {
   const [phase, setPhase] = useState<Phase>(countdown ? 'running' : 'stopped')
   /** Nought to one. Drives the wash, and nothing re-renders while it runs. */
@@ -167,10 +173,16 @@ export function ContinueBar({
   // way a tap on the button ends it. Not a pause that resumes when the voice
   // stops: you tap the speaker because you want longer with the card, and
   // having it leave the instant the word finishes is the thing being avoided.
+  //
+  // The count carries on across cards, so what matters is a change since this
+  // bar appeared, not the number itself — a bar mounting on a card whose
+  // predecessor was listened to has been asked for nothing.
+  const since = useRef(heard)
   useEffect(() => {
-    if (phase === 'stopped') return
-    return onSpeaking(stop)
-  }, [phase, stop])
+    if (heard === since.current) return
+    since.current = heard
+    stop()
+  }, [heard, stop])
 
   const click = () => {
     // The press has already said what it meant.

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { CoatId } from '../core/cat'
 import type { SceneName } from '../core/cat-rig'
 import { warm } from '../core/speech'
@@ -73,6 +73,13 @@ export function ReviewScreen({ session, coat, dark, onExit }: Props) {
   useEffect(() => {
     if (clip) void warm(clip)
   }, [clip])
+
+  // Asking to hear something is asking to stay a moment, so the countdown
+  // stops — the same stop a tap on the button makes. Counted rather than
+  // flagged: the second tap has to say as much as the first, and a flag that
+  // was already true says nothing.
+  const [heard, setHeard] = useState(0)
+  const listened = useCallback(() => setHeard((n) => n + 1), [])
 
   const counting = session.autoContinue && correct === true
 
@@ -200,6 +207,7 @@ export function ReviewScreen({ session, coat, dark, onExit }: Props) {
             correct={correct}
             onReveal={session.reveal}
             onChoose={session.choose}
+            onSpeak={listened}
           />
         </motion.div>
       </AnimatePresence>
@@ -223,7 +231,7 @@ export function ReviewScreen({ session, coat, dark, onExit }: Props) {
               {session.autoGrade !== null ? (
                 // Multiple choice: already graded, just move on.
                 // Already recorded when the option was chosen; this only moves on.
-                <ContinueBar onContinue={session.advance} countdown={counting} />
+                <ContinueBar onContinue={session.advance} countdown={counting} heard={heard} />
               ) : (
                 <GradeBar onGrade={session.grade} />
               )}

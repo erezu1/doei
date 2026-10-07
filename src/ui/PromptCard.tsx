@@ -26,6 +26,12 @@ interface Props {
   correct: boolean | null
   onReveal: () => void
   onChoose: (value: string) => void
+  /**
+   * Called when anything on the card has been asked for out loud — the word,
+   * the sentence, either speaker. The screen above uses it to stop the
+   * countdown, which is its business rather than this card's.
+   */
+  onSpeak: () => void
 }
 
 /**
@@ -173,11 +179,13 @@ function Choices({
 function WithSpeaker({
   speak: phrase,
   size,
+  onSpeak,
   children,
 }: {
   speak?: string
   /** The font size of the text inside, so the icon can be placed in its terms. */
   size: string
+  onSpeak: () => void
   children: (speaker: ReactNode) => ReactNode
 }) {
   // True while the voice is talking, so the waves run for the length of the
@@ -188,6 +196,7 @@ function WithSpeaker({
 
   const trigger = () => {
     if (!phrase) return
+    onSpeak()
     startedAt.current = performance.now()
     setSpeaking(true)
     void say(phrase).finally(() => {
@@ -333,7 +342,15 @@ function YouChose({ picked }: { picked: string }) {
   )
 }
 
-export function PromptCard({ prompt, revealed, picked, correct, onReveal, onChoose }: Props) {
+export function PromptCard({
+  prompt,
+  revealed,
+  picked,
+  correct,
+  onReveal,
+  onChoose,
+  onSpeak,
+}: Props) {
   const isChoice = prompt.shape === 'choice'
   // "de or het?" is answered with one word; what you should walk away with is
   // "de man". Cards that differ this way say so, and the rest answer as asked.
@@ -375,6 +392,7 @@ export function PromptCard({ prompt, revealed, picked, correct, onReveal, onChoo
         <p className="text-base font-medium text-on-surface-dim">{prompt.instruction}</p>
 
         <WithSpeaker
+          onSpeak={onSpeak}
           size={focalSize}
 
           // Speaking a gap-fill before it's answered would read out the answer.
@@ -503,7 +521,7 @@ export function PromptCard({ prompt, revealed, picked, correct, onReveal, onChoo
                   {/* Unless the example *is* the completed question, as it is
                       for a gap-fill — then it's already up there. */}
                   {prompt.detail && prompt.detail !== prompt.completion && (
-                    <WithSpeaker speak={prompt.detail} size="1.125rem">
+                    <WithSpeaker speak={prompt.detail} size="1.125rem" onSpeak={onSpeak}>
                       {(speaker) => (
                         <Sentence
                           sentence={prompt.detail!}
@@ -527,6 +545,7 @@ export function PromptCard({ prompt, revealed, picked, correct, onReveal, onChoo
                       were meant to arrive at, in the serif — written out, when
                       what you had to pick was a shortened form of it. */}
                   <WithSpeaker
+                    onSpeak={onSpeak}
                     speak={prompt.answerLang === 'nl' ? answerShown : undefined}
                     size={focalSize}
                   >
@@ -559,7 +578,7 @@ export function PromptCard({ prompt, revealed, picked, correct, onReveal, onChoo
                       a shadow is what the things you press look like. */}
                   {prompt.detail && (
                     <div className="mt-6 max-w-[17rem] space-y-1">
-                      <WithSpeaker speak={prompt.detail} size="1.125rem">
+                      <WithSpeaker speak={prompt.detail} size="1.125rem" onSpeak={onSpeak}>
                         {(speaker) => (
                           <Sentence
                             sentence={prompt.detail!}
