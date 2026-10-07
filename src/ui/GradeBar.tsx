@@ -2,6 +2,7 @@ import { AnimatePresence, animate, motion, useMotionValue, useTransform } from '
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AnimationPlaybackControls } from 'framer-motion'
 import { Rating, type Grade } from '../core/scheduler'
+import { onSpeaking } from '../core/speech'
 import { Button, wash } from './Button'
 
 // ---------------------------------------------------------------------------
@@ -161,6 +162,15 @@ export function ContinueBar({
       window.removeEventListener('pointercancel', finish)
     }
   }, [pressing, phase, stop])
+
+  // Asking to hear the word is asking to stay a moment, so the clock ends the
+  // way a tap on the button ends it. Not a pause that resumes when the voice
+  // stops: you tap the speaker because you want longer with the card, and
+  // having it leave the instant the word finishes is the thing being avoided.
+  useEffect(() => {
+    if (phase === 'stopped') return
+    return onSpeaking(stop)
+  }, [phase, stop])
 
   const click = () => {
     // The press has already said what it meant.

@@ -123,6 +123,23 @@ export function setVoice(id: string): void {
 let turn = 0
 
 /**
+ * Told whenever something has been asked for out loud.
+ *
+ * Here rather than threaded through the card, because this file is the one
+ * place that knows a tap asked to hear something — every call to `speak` is a
+ * tap, and nothing else calls it. What listens is the countdown on an answered
+ * card: asking to hear the word again is asking for a moment with it, and a
+ * card that walks off in the middle of the word is the app talking over
+ * itself.
+ */
+const listeners = new Set<() => void>()
+
+export function onSpeaking(cb: () => void): () => void {
+  listeners.add(cb)
+  return () => void listeners.delete(cb)
+}
+
+/**
  * The output, kept open.
  *
  * A fresh <audio> element for every tap was the obvious way and it was wrong
@@ -262,6 +279,7 @@ async function playClip(text: string, voice: string, mine: number): Promise<bool
  */
 export async function speak(text: string, rate = 0.9, voice = chosen): Promise<void> {
   if (!text) return
+  for (const cb of [...listeners]) cb()
   const mine = ++turn
   // Both before the first await: the browser only lets a page start audio
   // while it is still handling the tap.
