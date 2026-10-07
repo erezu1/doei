@@ -661,6 +661,8 @@ export function useSession(deck: Deck): Session {
       notes: deck.notes,
       // Multiple choice while learning, free recall once the word sticks.
       introduce: !saved || saved.state !== State.Review,
+      // Which of the word's sentences to show: the next one each time.
+      seen: saved?.reps ?? 0,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card?.id, note?.id, deck])

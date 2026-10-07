@@ -81,31 +81,40 @@ const posLabel: Record<string, string> = {
   conj: 'conjunction',
 }
 
-function example(note: Note) {
-  const ex = note.examples?.[0]
-  return { detail: ex?.nl, detailTranslation: ex?.en }
+/**
+ * Matches a form only as a whole word, and knows that `\b` and `[a-z]` are
+ * wrong about Dutch: \P{L} is "not a letter", so it sees the ij in "wijn" and
+ * the ë in "tweeën" the way a reader does.
+ */
+function shows(sentence: string, form: string): boolean {
+  const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|\\P{L})${escaped}(\\P{L}|$)`, 'iu').test(sentence)
 }
 
 /**
- * The example sentence, but only when it contains the form the card is about.
+ * The sentence shown under a card — and which sentence, out of the few the
+ * word has.
  *
- * A word's example is written for the word, not for the question being asked
- * about it: of the 286 verbs with both a participle and a sentence, exactly 2
- * sentences contain the participle. So "What is the past participle? / zijn /
- * geweest" came with "Ik ben moe." underneath — a present-tense sentence, set
- * larger than anything else on the card, that shows neither the participle nor
- * the perfect tense and reads as if it were the point. Better nothing than a
- * sentence that contradicts the question.
+ * A word's sentences are written for the word, not for the question being
+ * asked about it, so every card type here names the form a sentence has to
+ * show before it is worth the space underneath. "What is the past participle?
+ * / zijn / geweest" came with "Ik ben moe." under it — a present-tense
+ * sentence, set larger than anything else on the card, showing neither the
+ * participle nor the perfect tense and reading as if it were the point. The
+ * same went for "de or het?", where three sentences in four show the noun with
+ * no article anywhere near it, which is the one thing that card is about.
+ * Better nothing than a sentence that answers a different question.
  *
- * Kept for the cards where the sentence really is about the answer: knowing a
- * noun's gender is helped by seeing the noun in a sentence, whether or not the
- * article happens to be next to it.
+ * And then which one: `seen` is how many times this card has been through,
+ * so a word with more than one sentence shows the next one each time rather
+ * than the same one for ever. In order, not at random — a random pick of
+ * three repeats about as often as it changes.
  */
-function exampleOf(note: Note, form: string | undefined) {
-  if (!form) return {}
-  const pattern = new RegExp(`\\b${form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
-  const ex = note.examples?.find((e) => pattern.test(e.nl))
-  return ex ? { detail: ex.nl, detailTranslation: ex.en } : {}
+function sentence(note: Note, form: string | undefined, seen: number) {
+  const fitting = (note.examples ?? []).filter((e) => !form || shows(e.nl, form))
+  if (!fitting.length) return {}
+  const ex = fitting[seen % fitting.length]
+  return { detail: ex.nl, detailTranslation: ex.en }
 }
 
 export interface PromptContext {
@@ -117,6 +126,11 @@ export interface PromptContext {
    * free recall once it sticks.
    */
   introduce: boolean
+  /**
+   * How many times this card has been answered before. Only used to move
+   * along the word's sentences, so each review brings a different one.
+   */
+  seen: number
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -249,7 +263,7 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
           ? shuffle([firstGloss(note), ...distractors(note, ctx, firstGloss)])
           : undefined,
         speak: note.nl,
-        ...example(note),
+        ...sentence(note, note.nl, ctx.seen),
       }
     }
 
@@ -272,7 +286,7 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
         meaning: note.en.length > 1 ? `also ${note.en.slice(1).join(' · ')}` : undefined,
         choices: choice ? shuffle([dutch(note), ...distractors(note, ctx, dutch)]) : undefined,
         speak: note.nl,
-        ...example(note),
+        ...sentence(note, note.nl, ctx.seen),
       }
     }
 
@@ -288,7 +302,9 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
         answerLang: 'nl',
         choices: ['de', 'het'],
         speak: `${note.gender} ${note.nl}`,
-        ...example(note),
+        // The article, in use. A sentence with the noun bare says nothing
+        // about which word this card wants.
+        ...sentence(note, `${note.gender} ${note.nl}`, ctx.seen),
       }
 
     case 'plural':
@@ -305,7 +321,7 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
         answer: note.gender ? `de ${note.plural}` : note.plural!,
         answerLang: 'nl',
         speak: note.gender ? `de ${note.plural}` : note.plural,
-        ...exampleOf(note, note.plural),
+        ...sentence(note, note.plural, ctx.seen),
       }
 
     case 'participle':
@@ -323,7 +339,7 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
         answer: note.verb!.participle,
         answerLang: 'nl',
         speak: note.verb!.participle,
-        ...exampleOf(note, note.verb!.participle),
+        ...sentence(note, note.verb!.participle, ctx.seen),
       }
 
     case 'number':
@@ -395,7 +411,7 @@ export function buildPrompt(card: Card, note: Note, ctx: PromptContext): Prompt 
         answerLang: 'nl',
         choices: ['hebben', 'zijn'],
         speak: `${aux} ${note.verb!.participle}`,
-        ...exampleOf(note, note.verb!.participle),
+        ...sentence(note, note.verb!.participle, ctx.seen),
       }
     }
   }
